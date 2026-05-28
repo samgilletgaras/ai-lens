@@ -81,6 +81,7 @@ async function getProjectSessions(project, page = 0, pageSize = 20) {
     const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
 
     const messages = [];
+    let tokIn = 0, tokOut = 0, tokCR = 0, tokCC = 0, turnCount = 0;
     for await (const line of rl) {
       if (!line.trim()) continue;
       try {
@@ -88,8 +89,16 @@ async function getProjectSessions(project, page = 0, pageSize = 20) {
         const tstamp = new Date(parsed.timestamp).getTime();
         if (parsed.type === 'user') {
           messages.push({ role: 'user', content: parsed.message.content, timestamp: tstamp || 0 });
+          turnCount++;
         } else if (parsed.type === 'assistant') {
           messages.push({ role: 'assistant', content: parsed.message.content, timestamp: tstamp || 0 });
+          const u = parsed.message?.usage;
+          if (u) {
+            tokIn += u.input_tokens || 0;
+            tokOut += u.output_tokens || 0;
+            tokCR += u.cache_read_input_tokens || 0;
+            tokCC += u.cache_creation_input_tokens || 0;
+          }
         } else if (parsed.type === 'attachment') {
           messages.push({ role: 'system_attachment', content: parsed.attachment, timestamp: tstamp || 0 });
         } else if (parsed.type === 'system') {
@@ -103,7 +112,9 @@ async function getProjectSessions(project, page = 0, pageSize = 20) {
         id: sessionId,
         project,
         lastUpdated: messages[messages.length - 1].timestamp || 0,
-        messages
+        messages,
+        tokens: { input: tokIn, output: tokOut, cacheRead: tokCR, cacheCreation: tokCC },
+        turnCount,
       });
     }
   }
@@ -178,6 +189,8 @@ async function getStats() {
   const models = {};
   let hookSuccess = 0, hookFailure = 0, hookDurationTotal = 0, hookCount = 0;
   const projectStats = {};
+  const activityByDay = {};
+  const tokensByModel = {};
 
   for (const proj of fs.readdirSync(PROJECTS_DIR)) {
     if (isTmp(proj)) continue;
@@ -194,6 +207,7 @@ async function getStats() {
       const filePath = path.join(pPath, f);
       const fileStream = fs.createReadStream(filePath);
       const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+      let sessionLastTs = 0;
       for await (const line of rl) {
         if (!line.trim()) continue;
         const isAssistant = line.includes('"assistant"');
@@ -202,6 +216,10 @@ async function getStats() {
         if (!isAssistant && !isAttachment && !isUser) continue;
         try {
           const parsed = JSON.parse(line);
+          if (parsed.timestamp) {
+            const t = new Date(parsed.timestamp).getTime();
+            if (t > sessionLastTs) sessionLastTs = t;
+          }
           if (parsed.type === 'user') {
             messages++;
             projectStats[proj].messageCount++;
@@ -223,6 +241,11 @@ async function getStats() {
               tokCacheRead += cr;
               tokCacheCreation += cc;
               projectStats[proj].tokenCount += inp + out;
+              if (msg.model) {
+                if (!tokensByModel[msg.model]) tokensByModel[msg.model] = { input: 0, output: 0 };
+                tokensByModel[msg.model].input += inp;
+                tokensByModel[msg.model].output += out;
+              }
             }
             if (Array.isArray(msg.content)) {
               for (const block of msg.content) {
@@ -244,6 +267,10 @@ async function getStats() {
           }
         } catch(e) {}
       }
+      if (sessionLastTs > 0) {
+        const dayKey = new Date(sessionLastTs).toISOString().slice(0, 10);
+        activityByDay[dayKey] = (activityByDay[dayKey] || 0) + 1;
+      }
     }
   }
 
@@ -254,6 +281,18 @@ async function getStats() {
     .sort((a, b) => b[1].messageCount - a[1].messageCount)
     .slice(0, 5)
     .map(([id, s]) => ({ id, messageCount: s.messageCount, tokenCount: s.tokenCount }));
+
+  const MODEL_PRICING = {
+    'claude-opus-4': [15, 75], 'claude-3-opus': [15, 75],
+    'claude-sonnet-4': [3, 15], 'claude-3-5-sonnet': [3, 15], 'claude-3-sonnet': [3, 15],
+    'claude-haiku-4': [0.8, 4], 'claude-3-5-haiku': [0.8, 4], 'claude-3-haiku': [0.25, 1.25],
+  };
+  let estimatedCostUsd = 0;
+  for (const [model, toks] of Object.entries(tokensByModel)) {
+    const key = Object.keys(MODEL_PRICING).find(k => model.includes(k));
+    const [iRate, oRate] = key ? MODEL_PRICING[key] : [3, 15];
+    estimatedCostUsd += (toks.input / 1e6) * iRate + (toks.output / 1e6) * oRate;
+  }
 
   return {
     totals: { sessions, messages, toolCalls },
@@ -266,6 +305,8 @@ async function getStats() {
       avgDurationMs: hookCount > 0 ? Math.round(hookDurationTotal / hookCount) : 0,
     },
     topProjects,
+    activity: activityByDay,
+    estimatedCostUsd: Math.round(estimatedCostUsd * 100) / 100,
   };
 }
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Activity } from 'lucide-react';
 import type { DiagnosticsStats } from '../types';
-import { prettifyProjectName } from '../utils';
+import { prettifyProjectName, fmt } from '../utils';
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -37,10 +37,107 @@ function BarRow({ label, value, max, color = 'bg-amber-500/40' }: { label: strin
   );
 }
 
-function fmt(n: number) {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}k`;
-  return n.toLocaleString();
+function ActivityHeatmap({ activity }: { activity: Record<string, number> }) {
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+
+  // Align start to the Sunday >= 52 weeks ago
+  const start = new Date(today);
+  start.setDate(start.getDate() - 52 * 7);
+  start.setDate(start.getDate() - start.getDay());
+  start.setHours(0, 0, 0, 0);
+
+  const weeks: ({ date: string; count: number } | null)[][] = [];
+  const cursor = new Date(start);
+  while (cursor <= today) {
+    const week: ({ date: string; count: number } | null)[] = [];
+    for (let d = 0; d < 7; d++) {
+      const day = new Date(cursor);
+      day.setDate(day.getDate() + d);
+      if (day > today) {
+        week.push(null);
+      } else {
+        const dateStr = day.toISOString().slice(0, 10);
+        week.push({ date: dateStr, count: activity[dateStr] || 0 });
+      }
+    }
+    weeks.push(week);
+    cursor.setDate(cursor.getDate() + 7);
+  }
+
+  const maxCount = Math.max(...Object.values(activity).filter(v => typeof v === 'number'), 1);
+
+  function cellColor(count: number) {
+    if (count === 0) return 'bg-zinc-800';
+    const r = count / maxCount;
+    if (r < 0.2) return 'bg-amber-900/70';
+    if (r < 0.4) return 'bg-amber-800/80';
+    if (r < 0.65) return 'bg-amber-600/80';
+    if (r < 0.85) return 'bg-amber-500';
+    return 'bg-amber-400';
+  }
+
+  // Month label for the first week of each new month
+  const monthLabels: Record<number, string> = {};
+  weeks.forEach((week, i) => {
+    const first = week.find(d => d !== null);
+    if (!first) return;
+    const d = new Date(first.date);
+    const prev = i > 0 ? weeks[i - 1].find(x => x !== null) : null;
+    if (!prev || new Date(prev.date).getMonth() !== d.getMonth()) {
+      monthLabels[i] = d.toLocaleDateString([], { month: 'short' });
+    }
+  });
+
+  const totalSessions = Object.values(activity).reduce((s, v) => s + v, 0);
+  const activeDays = Object.values(activity).filter(v => v > 0).length;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-[10px] uppercase tracking-wider text-zinc-500">Activity — last 12 months</div>
+        <div className="text-[10px] text-zinc-500">
+          <span className="text-zinc-300">{totalSessions}</span> sessions · <span className="text-zinc-300">{activeDays}</span> active days
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <div className="inline-flex flex-col gap-0 min-w-0">
+          {/* Month labels */}
+          <div className="flex gap-[3px] mb-1 pl-0">
+            {weeks.map((_, i) => (
+              <div key={i} className="w-[11px] shrink-0 text-[8px] text-zinc-600 leading-none overflow-visible whitespace-nowrap">
+                {monthLabels[i] || ''}
+              </div>
+            ))}
+          </div>
+          {/* Day rows */}
+          {[0, 1, 2, 3, 4, 5, 6].map(dayIdx => (
+            <div key={dayIdx} className="flex gap-[3px] mb-[3px] last:mb-0">
+              {weeks.map((week, wi) => {
+                const cell = week[dayIdx];
+                if (!cell) return <div key={wi} className="w-[11px] h-[11px] shrink-0" />;
+                return (
+                  <div
+                    key={wi}
+                    title={`${cell.date}: ${cell.count} session${cell.count !== 1 ? 's' : ''}`}
+                    className={`w-[11px] h-[11px] shrink-0 rounded-[2px] ${cellColor(cell.count)}`}
+                  />
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Legend */}
+      <div className="flex items-center gap-1 mt-2 justify-end">
+        <span className="text-[9px] text-zinc-600">Less</span>
+        {['bg-zinc-800', 'bg-amber-900/70', 'bg-amber-700/80', 'bg-amber-500', 'bg-amber-400'].map((c, i) => (
+          <div key={i} className={`w-[11px] h-[11px] rounded-[2px] ${c}`} />
+        ))}
+        <span className="text-[9px] text-zinc-600">More</span>
+      </div>
+    </div>
+  );
 }
 
 export function LogsViewer() {
@@ -100,6 +197,13 @@ export function LogsViewer() {
         </div>
         <p className="text-zinc-500 text-sm mb-6">Aggregated from all session history</p>
 
+        {/* Heatmap */}
+        {stats.activity && (
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 mb-6">
+            <ActivityHeatmap activity={stats.activity} />
+          </div>
+        )}
+
         {/* Summary cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatCard label="Sessions" value={stats.totals.sessions.toLocaleString()} />
@@ -108,9 +212,24 @@ export function LogsViewer() {
           <StatCard
             label="Cache Hit Rate"
             value={`${stats.tokens.cacheHitRate}%`}
-            sub={`${fmt(stats.tokens.cacheRead)} tokens served from cache`}
+            sub={`${fmt(stats.tokens.cacheRead)} tokens from cache`}
           />
         </div>
+
+        {/* Cost estimate */}
+        {stats.estimatedCostUsd !== undefined && (
+          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4 mb-6 flex items-center justify-between">
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Estimated Cost</div>
+              <div className="text-3xl font-semibold text-slate-200 tabular-nums">
+                ${stats.estimatedCostUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+            </div>
+            <div className="text-right text-xs text-zinc-600 max-w-xs">
+              Approximate, based on public model pricing for input/output tokens. Cache tokens not billed.
+            </div>
+          </div>
+        )}
 
         {/* Stop reasons + Models */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">

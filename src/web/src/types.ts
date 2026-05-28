@@ -40,6 +40,8 @@ export interface Conversation {
   project: string;
   lastUpdated: number;
   messages: Message[];
+  tokens?: { input: number; output: number; cacheRead: number; cacheCreation: number };
+  turnCount?: number;
 }
 
 export interface Skill {
@@ -95,4 +97,6 @@ export interface DiagnosticsStats {
   models: Record<string, number>;
   hooks: { success: number; failure: number; avgDurationMs: number };
   topProjects: { id: string; messageCount: number; tokenCount: number }[];
+  activity: Record<string, number>;
+  estimatedCostUsd: number;
 }
