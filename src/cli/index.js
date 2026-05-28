@@ -225,14 +225,30 @@ async function searchSessions(query) {
           if (parsed.type === 'user' || parsed.type === 'assistant') {
             messages.push({ role: parsed.type === 'user' ? 'user' : 'assistant', content: parsed.message?.content || parsed.content || '', timestamp: lastUpdated });
           }
-          if (!excerpt && (parsed.type === 'user' || parsed.type === 'assistant')) {
-            const content = parsed.message?.content || parsed.content || '';
+          if (!excerpt) {
+            // Try structured extraction first
+            const content = (parsed.type === 'user' || parsed.type === 'assistant')
+              ? (parsed.message?.content || parsed.content || '')
+              : null;
             let text = '';
             if (Array.isArray(content)) {
-              const tb = content.find(b => b.type === 'text');
-              if (tb) text = tb.text || '';
+              for (const block of content) {
+                if (block.type === 'text' && block.text) { text = block.text; break; }
+                if (block.type === 'tool_use') {
+                  const candidate = `${block.name || ''} ${JSON.stringify(block.input || '')}`;
+                  if (candidate.toLowerCase().includes(ql)) { text = candidate; break; }
+                }
+                if (block.type === 'tool_result') {
+                  const candidate = typeof block.content === 'string' ? block.content : JSON.stringify(block.content || '');
+                  if (candidate.toLowerCase().includes(ql)) { text = candidate; break; }
+                }
+              }
             } else if (typeof content === 'string') {
               text = content;
+            }
+            // Fall back to raw line if structured extraction didn't yield the match
+            if (!text.toLowerCase().includes(ql)) {
+              text = line.replace(/[{}"\\]/g, ' ').replace(/\s+/g, ' ').trim();
             }
             text = text.replace(/<[\s\S]*?>/g, ' ').replace(/\s+/g, ' ').trim();
             const idx = text.toLowerCase().indexOf(ql);
@@ -658,6 +674,33 @@ const server = http.createServer(async (req, res) => {
     try {
       const { data, total } = await getLogs(page, pageSize);
       ok({ data, total, page, pageSize });
+    } catch(e) { err(e.message); }
+    return;
+  }
+
+  if (q.pathname === '/api/session') {
+    const project = q.get('project', null);
+    const sessionId = q.get('id', null);
+    if (!project || !sessionId) { err('project and id params required'); return; }
+    try {
+      const filePath = path.join(PROJECTS_DIR, project, `${sessionId}.jsonl`);
+      if (!fs.existsSync(filePath)) { err('Session not found'); return; }
+      const messages = [];
+      const fileStream = fs.createReadStream(filePath);
+      const rl = readline.createInterface({ input: fileStream, crlfDelay: Infinity });
+      for await (const line of rl) {
+        if (!line.trim()) continue;
+        try {
+          const parsed = JSON.parse(line);
+          const tstamp = parsed.timestamp ? new Date(parsed.timestamp).getTime() : 0;
+          if (parsed.type === 'user') messages.push({ role: 'user', content: parsed.message.content, timestamp: tstamp });
+          else if (parsed.type === 'assistant') messages.push({ role: 'assistant', content: parsed.message.content, timestamp: tstamp });
+          else if (parsed.type === 'attachment') messages.push({ role: 'system_attachment', content: parsed.attachment, timestamp: tstamp });
+          else if (parsed.type === 'system') messages.push({ role: 'system', content: parsed.content, timestamp: tstamp });
+        } catch(e) {}
+      }
+      const lastUpdated = messages.length > 0 ? messages[messages.length - 1].timestamp : 0;
+      ok({ data: { id: sessionId, project, lastUpdated, messages } });
     } catch(e) { err(e.message); }
     return;
   }

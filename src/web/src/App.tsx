@@ -19,7 +19,7 @@ function App() {
 
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
+  const [directSession, setDirectSession] = useState<Conversation | null>(null);
   const [currentView, setCurrentView] = useState<'history' | 'logs' | 'skills' | 'mcps' | 'search'>('history');
   const [sessionSort, setSessionSort] = useState<'newest' | 'oldest'>('newest');
   const [error, setError] = useState<string | null>(null);
@@ -41,24 +41,17 @@ function App() {
       .then(res => res.json())
       .then(res => {
         if (res.error) throw new Error(res.error);
-        const data: Conversation[] = res.data || [];
-        setSessions(data);
+        setSessions(res.data || []);
         setSessionsTotal(res.total || 0);
         setLoadedKey(key);
-        if (pendingSessionId) {
-          const found = data.find(c => c.id === pendingSessionId);
-          if (found) {
-            setActiveSessionId(pendingSessionId);
-            setPendingSessionId(null);
-          }
-        }
       })
       .catch(() => setLoadedKey(key));
   }, [activeProjectId, sessionsPage]);
 
   const currentKey = activeProjectId ? `${activeProjectId}:${sessionsPage}` : null;
   const sessionsLoading = currentKey !== null && loadedKey !== currentKey;
-  const activeConv = sessions.find(c => c.id === activeSessionId) ?? null;
+  const activeConv = sessions.find(c => c.id === activeSessionId)
+    ?? (directSession?.id === activeSessionId ? directSession : null);
   const sessionsTotalPages = Math.ceil(sessionsTotal / SESSION_PAGE_SIZE);
 
   const sortedSessions = sessionSort === 'oldest' ? [...sessions].reverse() : sessions;
@@ -74,16 +67,22 @@ function App() {
   function closeProject() {
     setActiveProjectId(null);
     setActiveSessionId(null);
+    setDirectSession(null);
     setSessions([]);
     setSessionsPage(0);
     setLoadedKey(null);
-    setPendingSessionId(null);
   }
 
   function navigateToSession(project: string, sessionId: string) {
     setCurrentView('history');
-    setPendingSessionId(sessionId);
+    setDirectSession(null);
+    setActiveSessionId(sessionId);
     openProject(project);
+    fetch(`/api/session?project=${encodeURIComponent(project)}&id=${encodeURIComponent(sessionId)}`)
+      .then(res => res.json())
+      .then(res => {
+        if (res.data) setDirectSession(res.data);
+      });
   }
 
   return (
