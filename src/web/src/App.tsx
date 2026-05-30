@@ -1,16 +1,17 @@
 import { useEffect, useState, useRef } from 'react';
 import type { ConversationSummary, ProjectSummary, Block, Message, AttachmentContent } from './types';
 import { MessageBubble } from './components/MessageBubble';
-import { MessageSquare, Clock, FolderOpen, ArrowLeft, Activity, Layers, Plug, RefreshCw, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Search, X, Brain } from 'lucide-react';
+import { MessageSquare, Clock, FolderOpen, ArrowLeft, Activity, Layers, Plug, RefreshCw, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Search, X, Brain, ClipboardList } from 'lucide-react';
 import { LogsViewer } from './components/LogsViewer';
 import { SkillsViewer } from './components/SkillsViewer';
 import { MCPsViewer } from './components/MCPsViewer';
 import { MemoryViewer } from './components/MemoryViewer';
+import { PlansViewer } from './components/PlansViewer';
 import { ProjectDiagnostics } from './components/ProjectDiagnostics';
 import { prettifyProjectName, formatRelative, fmt, formatDuration } from './utils';
 
 const SESSION_PAGE_SIZE = 20;
-const VALID_VIEWS = ['history', 'logs', 'skills', 'mcps', 'memory'] as const;
+const VALID_VIEWS = ['history', 'logs', 'skills', 'mcps', 'memory', 'plans'] as const;
 type AppView = typeof VALID_VIEWS[number];
 
 function extractMessageText(msg: Message): string {
@@ -313,6 +314,9 @@ function App() {
                   <button onClick={() => { setCurrentView('memory'); closeProject(); }} title="Memory" className={`w-full flex justify-center p-2 rounded transition-colors ${currentView === 'memory' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
                     <Brain className="w-4 h-4" />
                   </button>
+                  <button onClick={() => { setCurrentView('plans'); closeProject(); }} title="Plans" className={`w-full flex justify-center p-2 rounded transition-colors ${currentView === 'plans' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
+                    <ClipboardList className="w-4 h-4" />
+                  </button>
                 </>
               )}
             </div>
@@ -339,6 +343,9 @@ function App() {
                   </button>
                   <button onClick={() => { setCurrentView('memory'); closeProject(); }} className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center ${currentView === 'memory' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
                     <Brain className="w-4 h-4 mr-2 shrink-0" /> Memory
+                  </button>
+                  <button onClick={() => { setCurrentView('plans'); closeProject(); }} className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center ${currentView === 'plans' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
+                    <ClipboardList className="w-4 h-4 mr-2 shrink-0" /> Plans
                   </button>
                 </>
               )}
@@ -433,6 +440,8 @@ function App() {
           <MCPsViewer key={refreshKey} />
         ) : currentView === 'memory' ? (
           <MemoryViewer key={refreshKey} />
+        ) : currentView === 'plans' ? (
+          <PlansViewer key={refreshKey} />
         ) : activeProjectId === null ? (
           <div className="flex-1 overflow-y-auto w-full p-8">
             <div className="max-w-7xl mx-auto">

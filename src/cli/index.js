@@ -8,6 +8,7 @@ const PORT = process.env.PORT || 3000;
 const CLAUDE_DIR = path.join(os.homedir(), '.claude');
 const PROJECTS_DIR = path.join(CLAUDE_DIR, 'projects');
 const SKILLS_DIR = path.join(CLAUDE_DIR, 'skills');
+const PLANS_DIR = path.join(CLAUDE_DIR, 'plans');
 const MCP_PLUGINS_DIR = path.join(CLAUDE_DIR, 'plugins/marketplaces/claude-plugins-official/external_plugins');
 
 const CACHE_TTL = 60_000;
@@ -21,6 +22,8 @@ const _sessionCache = {};
 const _projectStatsCache = {};
 let _logsCache = null;
 let _logsCacheTs = 0;
+let _plansCache = null;
+let _plansCacheTs = 0;
 const _messageCache = {};
 
 function isTmp(name) {
@@ -624,6 +627,38 @@ async function getMemory(project = null, filename = null) {
   return entries;
 }
 
+async function getPlans(filename = null) {
+  if (!filename && _plansCache && Date.now() - _plansCacheTs < CACHE_TTL) return _plansCache;
+  if (!fs.existsSync(PLANS_DIR)) return [];
+  const files = fs.readdirSync(PLANS_DIR).filter(f => f.endsWith('.md'));
+  const plans = [];
+  for (const f of files) {
+    if (filename && f !== filename) continue;
+    try {
+      const raw = fs.readFileSync(path.join(PLANS_DIR, f), 'utf8');
+      const { meta, body } = parseFrontmatter(raw);
+      const mtime = fs.statSync(path.join(PLANS_DIR, f)).mtimeMs;
+      let title = meta.name || null;
+      if (!title) {
+        const headingMatch = body.match(/^#\s+(.+)/m);
+        title = headingMatch ? headingMatch[1].trim() : f.replace('.md', '').replace(/-/g, ' ');
+      }
+      let snippet = null;
+      for (const line of body.split('\n')) {
+        const t = line.trim();
+        if (t && !t.startsWith('#') && !t.startsWith('```') && !t.startsWith('---')) {
+          snippet = t.slice(0, 200);
+          break;
+        }
+      }
+      plans.push({ filename: f, title, snippet, mtime, ...(filename ? { body } : {}) });
+    } catch(e) {}
+  }
+  plans.sort((a, b) => b.mtime - a.mtime);
+  if (!filename) { _plansCache = plans; _plansCacheTs = Date.now(); }
+  return plans;
+}
+
 async function getProjectStats(project) {
   const pPath = path.join(PROJECTS_DIR, project);
   if (!fs.existsSync(pPath) || !fs.statSync(pPath).isDirectory()) return null;
@@ -858,6 +893,13 @@ const server = http.createServer(async (req, res) => {
     const project = q.get('project', null);
     const filename = q.get('file', null);
     try { ok({ data: await getMemory(project, filename) }); }
+    catch(e) { err(e.message); }
+    return;
+  }
+
+  if (q.pathname === '/api/plans') {
+    const file = q.get('file', null);
+    try { ok({ data: await getPlans(file) }); }
     catch(e) { err(e.message); }
     return;
   }

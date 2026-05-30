@@ -114,6 +114,17 @@ export interface MemoryEntryDetail extends MemoryEntry {
   body: string;
 }
 
+export interface Plan {
+  filename: string;
+  title: string;
+  snippet: string | null;
+  mtime: number;
+}
+
+export interface PlanDetail extends Plan {
+  body: string;
+}
+
 export interface ProjectStats {
   totals: { sessions: number; messages: number; toolCalls: number };
   tokens: { input: number; output: number; cacheRead: number; cacheCreation: number; cacheHitRate: number };
