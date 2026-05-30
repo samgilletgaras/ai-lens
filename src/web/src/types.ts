@@ -35,6 +35,16 @@ export interface ProjectSummary {
   lastUpdated: number;
 }
 
+export interface ConversationSummary {
+  id: string;
+  project: string;
+  lastUpdated: number;
+  firstMessageTs: number;
+  preview: string;
+  tokens?: { input: number; output: number; cacheRead: number; cacheCreation: number };
+  turnCount?: number;
+}
+
 export interface Conversation {
   id: string;
   project: string;

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import type { Conversation, ProjectSummary, Block, Message, AttachmentContent } from './types';
+import type { ConversationSummary, ProjectSummary, Block, Message, AttachmentContent } from './types';
 import { MessageBubble } from './components/MessageBubble';
 import { MessageSquare, Clock, FolderOpen, ArrowLeft, Activity, Layers, Plug, RefreshCw, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Search, X, Brain } from 'lucide-react';
 import { LogsViewer } from './components/LogsViewer';
@@ -24,10 +24,9 @@ function extractMessageText(msg: Message): string {
   return [att.command, att.stdout, att.content, att.stderr].filter(Boolean).join(' ');
 }
 
-function getSessionDuration(conv: Conversation): string | null {
-  const ts = conv.messages.map(m => m.timestamp).filter(t => t > 0);
-  if (ts.length < 2) return null;
-  return formatDuration(Math.max(...ts) - Math.min(...ts));
+function getSessionDuration(conv: ConversationSummary): string | null {
+  if (!conv.firstMessageTs || !conv.lastUpdated || conv.lastUpdated <= conv.firstMessageTs) return null;
+  return formatDuration(conv.lastUpdated - conv.firstMessageTs);
 }
 
 function parseHash(hash: string): { view: AppView; projectId: string | null; sessionId: string | null } {
@@ -45,9 +44,9 @@ function buildHash(view: AppView, projectId: string | null, sessionId: string | 
   return `#/history/${projectId}/${sessionId}`;
 }
 
-function exportSession(conv: Conversation) {
+function exportSession(conv: ConversationSummary, messages: Message[]) {
   const lines: string[] = [`# Session\n\n*${new Date(conv.lastUpdated).toLocaleString()}*\n\n---\n`];
-  [...conv.messages].reverse().forEach(msg => {
+  [...messages].reverse().forEach(msg => {
     if (msg.role === 'user') {
       lines.push('\n\n**User**\n\n');
       const c = msg.content;
@@ -80,7 +79,9 @@ function exportSession(conv: Conversation) {
 
 function App() {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
-  const [sessions, setSessions] = useState<Conversation[]>([]);
+  const [sessions, setSessions] = useState<ConversationSummary[]>([]);
+  const [activeMessages, setActiveMessages] = useState<Message[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
   const [sessionsTotal, setSessionsTotal] = useState(0);
   const [sessionsPage, setSessionsPage] = useState(0);
   const [loadedKey, setLoadedKey] = useState<string | null>(null);
@@ -181,6 +182,17 @@ function App() {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Fetch messages when a session is selected
+  useEffect(() => {
+    if (!activeProjectId || !activeSessionId) { setActiveMessages([]); return; }
+    setMessagesLoading(true);
+    fetch(`/api/messages?project=${encodeURIComponent(activeProjectId)}&session=${encodeURIComponent(activeSessionId)}`)
+      .then(r => r.json())
+      .then(r => setActiveMessages(r.data || []))
+      .catch(() => setActiveMessages([]))
+      .finally(() => setMessagesLoading(false));
+  }, [activeProjectId, activeSessionId, refreshKey]);
+
   // Clear search when switching sessions
   useEffect(() => {
     setSessionSearch('');
@@ -201,7 +213,7 @@ function App() {
 
   // Session search
   const searchQ = sessionSearch.toLowerCase().trim();
-  const displayedMessages: Message[] = activeConv ? [...activeConv.messages].reverse() : [];
+  const displayedMessages: Message[] = [...activeMessages].reverse();
   const matchedIndices = searchQ
     ? displayedMessages.reduce<number[]>((acc, msg, i) => {
         if (extractMessageText(msg).toLowerCase().includes(searchQ)) acc.push(i);
@@ -353,23 +365,14 @@ function App() {
                   {sessionsLoading && <div className="p-4 text-lens-text-dim text-sm">Loading sessions...</div>}
                   {!sessionsLoading && sortedSessions.map(conv => {
                     const isActive = activeSessionId === conv.id;
-                    let firstText = 'New Session';
-                    const firstUserMsg = conv.messages.find(m => m.role === 'user');
-                    if (firstUserMsg) {
-                      let rawText = '';
-                      if (Array.isArray(firstUserMsg.content)) {
-                        const textBlock = firstUserMsg.content.find((b: { type: string; text?: string }) => b.type === 'text');
-                        if (textBlock && textBlock.text) rawText = textBlock.text;
-                      } else if (typeof firstUserMsg.content === 'string') {
-                        rawText = firstUserMsg.content;
-                      }
-                      const cmdMatch = rawText.match(/<command-message>([\s\S]*?)<\/command-message>/);
-                      const localCmdMatch = rawText.match(/<command-name>(.*?)<\/command-name>/);
-                      if (localCmdMatch) rawText = localCmdMatch[1];
-                      else if (cmdMatch) rawText = cmdMatch[1];
-                      else rawText = rawText.replace(/<[\s\S]*?>/g, '').trim();
-                      rawText = rawText.split('\n')[0].trim();
-                      if (rawText) firstText = rawText;
+                    let firstText = conv.preview || 'New Session';
+                    if (firstText) {
+                      const cmdMatch = firstText.match(/<command-message>([\s\S]*?)<\/command-message>/);
+                      const localCmdMatch = firstText.match(/<command-name>(.*?)<\/command-name>/);
+                      if (localCmdMatch) firstText = localCmdMatch[1];
+                      else if (cmdMatch) firstText = cmdMatch[1];
+                      else firstText = firstText.replace(/<[\s\S]*?>/g, '').trim();
+                      firstText = firstText.split('\n')[0].trim() || 'New Session';
                     }
                     const totalTok = conv.tokens ? conv.tokens.input + conv.tokens.output : 0;
                     const dur = getSessionDuration(conv);
@@ -519,15 +522,20 @@ function App() {
               <button onClick={() => setCollapseSignal(s => s + 1)} className="px-2 py-1 text-[10px] rounded bg-lens-border/80 hover:bg-lens-hover text-lens-text-sub hover:text-lens-text transition-colors shrink-0">
                 Collapse all
               </button>
-              <button onClick={() => exportSession(activeConv)} className="px-2 py-1 text-[10px] rounded bg-lens-border/80 hover:bg-lens-hover text-lens-text-sub hover:text-lens-text transition-colors shrink-0">
+              <button onClick={() => exportSession(activeConv, activeMessages)} className="px-2 py-1 text-[10px] rounded bg-lens-border/80 hover:bg-lens-hover text-lens-text-sub hover:text-lens-text transition-colors shrink-0">
                 Export ↓
               </button>
             </div>
 
             {/* Messages */}
             <div ref={sessionScrollRef} className="flex-1 overflow-y-auto w-full relative">
+              {messagesLoading && (
+                <div className="flex items-center justify-center h-32 text-lens-text-dim text-sm">
+                  Loading messages…
+                </div>
+              )}
               <div className="py-8 pb-32 px-4 md:px-8 lg:px-12 max-w-6xl mx-auto">
-                {displayedMessages.map((msg, i) => (
+                {!messagesLoading && displayedMessages.map((msg, i) => (
                   <div
                     key={i}
                     id={`msg-${i}`}
