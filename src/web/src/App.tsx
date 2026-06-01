@@ -471,6 +471,18 @@ function App() {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col h-full overflow-hidden bg-lens-bg">
+        {demoMode && (
+          <div className="shrink-0 bg-lens-accent/10 border-b border-lens-accent/30 px-4 py-2 flex items-center gap-3">
+            <span className="text-lens-accent text-xs font-medium">Demo mode</span>
+            <span className="text-lens-text-dim text-xs flex-1">Showing sample data — not reading from ~/.claude</span>
+            <button
+              onClick={() => { setCurrentView('settings'); closeProject(); }}
+              className="text-[10px] px-2 py-0.5 rounded border border-lens-accent/40 text-lens-accent hover:bg-lens-accent/20 transition-colors shrink-0"
+            >
+              Settings →
+            </button>
+          </div>
+        )}
         {currentView === 'settings' ? (
           <SettingsViewer demoMode={demoMode} hasClaudeDir={hasClaudeDir} onToggle={handleDemoToggle} />
         ) : currentView === 'logs' ? (
