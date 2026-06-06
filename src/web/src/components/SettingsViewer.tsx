@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Settings } from 'lucide-react';
+import type { Provider } from '../types';
 import { apiUrl } from '../utils';
 
 const THEMES: { id: 'default' | 'tycho' | 'parchment'; name: string; colors: string[] }[] = [
@@ -11,12 +12,15 @@ const THEMES: { id: 'default' | 'tycho' | 'parchment'; name: string; colors: str
 interface Props {
   demoMode: boolean;
   hasClaudeDir: boolean;
+  hasGhcopilotDir: boolean;
+  provider: Provider;
+  onProviderChange: (p: Provider) => void;
   onToggle: (value: boolean) => void;
   theme: 'default' | 'tycho' | 'parchment';
   onThemeChange: (t: 'default' | 'tycho' | 'parchment') => void;
 }
 
-export function SettingsViewer({ demoMode, hasClaudeDir, onToggle, theme, onThemeChange }: Props) {
+export function SettingsViewer({ demoMode, hasClaudeDir, hasGhcopilotDir, provider, onProviderChange, onToggle, theme, onThemeChange }: Props) {
   const [version, setVersion] = useState<string | null>(null);
 
   useEffect(() => {
@@ -25,6 +29,7 @@ export function SettingsViewer({ demoMode, hasClaudeDir, onToggle, theme, onThem
       .then(d => { if (d.data?.version) setVersion(d.data.version); })
       .catch(() => {});
   }, [demoMode]);
+
   return (
     <div className="flex-1 overflow-y-auto w-full">
       <div className="p-8 max-w-7xl mx-auto">
@@ -43,6 +48,35 @@ export function SettingsViewer({ demoMode, hasClaudeDir, onToggle, theme, onThem
           </div>
         )}
 
+        <div className="bg-lens-surface border border-lens-border rounded-lg overflow-hidden mb-6">
+          <div className="px-4 py-2.5 border-b border-lens-border">
+            <span className="text-[10px] uppercase tracking-wider text-lens-text-dim">Provider</span>
+          </div>
+
+          <div className="flex items-center justify-between px-4 py-4">
+            <div>
+              <div className="text-sm font-medium text-lens-text">Active Provider</div>
+              <div className="text-xs text-lens-text-dim mt-0.5">Choose which AI assistant's history to browse.</div>
+            </div>
+            <div className="flex gap-2 shrink-0 ml-6">
+              <button
+                onClick={() => onProviderChange('claude')}
+                className={`px-3 py-1.5 rounded text-xs border transition-colors ${provider === 'claude' ? 'border-lens-accent bg-lens-accent/10 text-lens-accent' : 'border-lens-border text-lens-text-sub hover:border-lens-border-hi'}`}
+              >
+                Claude Code
+              </button>
+              <button
+                onClick={() => onProviderChange('ghcopilot')}
+                disabled={!hasGhcopilotDir && !demoMode}
+                title={!hasGhcopilotDir && !demoMode ? 'No GitHub Copilot workspace data found' : undefined}
+                className={`px-3 py-1.5 rounded text-xs border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${provider === 'ghcopilot' ? 'border-lens-accent bg-lens-accent/10 text-lens-accent' : 'border-lens-border text-lens-text-sub hover:border-lens-border-hi'}`}
+              >
+                GitHub Copilot
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div className="bg-lens-surface border border-lens-border rounded-lg overflow-hidden">
           <div className="px-4 py-2.5 border-b border-lens-border">
             <span className="text-[10px] uppercase tracking-wider text-lens-text-dim">Display</span>
@@ -52,7 +86,7 @@ export function SettingsViewer({ demoMode, hasClaudeDir, onToggle, theme, onThem
             <div>
               <div className="text-sm font-medium text-lens-text">Demo Mode</div>
               <div className="text-xs text-lens-text-dim mt-0.5">
-                Show sample data instead of reading from ~/.claude.
+                Show sample data instead of reading from real sources.
               </div>
             </div>
             <button
@@ -96,7 +130,6 @@ export function SettingsViewer({ demoMode, hasClaudeDir, onToggle, theme, onThem
             </div>
           </div>
         </div>
-
 
         <p className="text-xs text-lens-text-faint mt-6 text-center">
           Claude Lens · local session history explorer{version ? ` · v${version}` : ''}

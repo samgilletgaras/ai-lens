@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import type { ConversationSummary, ProjectSummary, Block, Message, AttachmentContent } from './types';
+import type { ConversationSummary, ProjectSummary, Block, Message, AttachmentContent, Provider, ProviderCapabilities } from './types';
 import { MessageBubble } from './components/MessageBubble';
 import { MessageSquare, Clock, FolderOpen, ArrowLeft, Activity, Layers, Plug, RefreshCw, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Search, X, Brain, ClipboardList, Settings } from 'lucide-react';
 import { LogsViewer } from './components/LogsViewer';
@@ -14,6 +14,11 @@ import { prettifyProjectName, formatRelative, fmt, formatDuration, apiUrl } from
 const SESSION_PAGE_SIZE = 20;
 const VALID_VIEWS = ['history', 'logs', 'skills', 'mcps', 'memory', 'plans', 'settings'] as const;
 type AppView = typeof VALID_VIEWS[number];
+
+const PROVIDER_CAPABILITIES: Record<Provider, ProviderCapabilities> = {
+  claude:    { hasHistory: true, hasStats: true, hasLogs: true,  hasSkills: true,  hasMcps: true,  hasMemory: true,  hasPlans: true  },
+  ghcopilot: { hasHistory: true, hasStats: true, hasLogs: false, hasSkills: false, hasMcps: false, hasMemory: false, hasPlans: false },
+};
 
 function extractMessageText(msg: Message): string {
   if (typeof msg.content === 'string') return msg.content;
@@ -46,7 +51,7 @@ function buildHash(view: AppView, projectId: string | null, sessionId: string | 
   return `#/history/${projectId}/${sessionId}`;
 }
 
-function exportSession(conv: ConversationSummary, messages: Message[]) {
+function exportSession(conv: ConversationSummary, messages: Message[], assistantLabel = 'Claude') {
   const lines: string[] = [`# Session\n\n*${new Date(conv.lastUpdated).toLocaleString()}*\n\n---\n`];
   [...messages].reverse().forEach(msg => {
     if (msg.role === 'user') {
@@ -57,7 +62,7 @@ function exportSession(conv: ConversationSummary, messages: Message[]) {
         (c as Block[]).forEach(b => { if (b.type === 'text' && b.text) lines.push(b.text); });
       }
     } else if (msg.role === 'assistant') {
-      lines.push('\n\n**Claude**\n\n');
+      lines.push(`\n\n**${assistantLabel}**\n\n`);
       const c = msg.content;
       if (typeof c === 'string') lines.push(c);
       else if (Array.isArray(c)) {
@@ -109,7 +114,11 @@ function App() {
     if (saved === 'tycho' || saved === 'parchment') return saved;
     return 'default';
   });
+  const [provider, setProvider] = useState<Provider>(() => {
+    return localStorage.getItem('lens-provider') === 'ghcopilot' ? 'ghcopilot' : 'claude';
+  });
   const [hasClaudeDir, setHasClaudeDir] = useState(true);
+  const [hasGhcopilotDir, setHasGhcopilotDir] = useState(false);
 
   const sessionScrollRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -136,9 +145,11 @@ function App() {
     fetch('/api/health')
       .then(r => r.json())
       .then(r => {
-        const detected = r.data?.hasClaudeDir ?? true;
-        setHasClaudeDir(detected);
-        if (!detected && localStorage.getItem('lens-demo-mode') === null) {
+        const hasC = r.data?.hasClaudeDir ?? true;
+        const hasP = r.data?.hasGhcopilotDir ?? false;
+        setHasClaudeDir(hasC);
+        setHasGhcopilotDir(hasP);
+        if (!hasC && !hasP && localStorage.getItem('lens-demo-mode') === null) {
           setDemoMode(true);
         }
       })
@@ -146,19 +157,19 @@ function App() {
   }, []);
 
   useEffect(() => {
-    fetch(apiUrl('/api/projects', demoMode))
+    fetch(apiUrl('/api/projects', demoMode, provider))
       .then(res => res.json())
       .then(res => {
         if (res.error) throw new Error(res.error);
         setProjects(res.data || []);
       })
       .catch(err => setError(err.message));
-  }, [refreshKey, demoMode]);
+  }, [refreshKey, demoMode, provider]);
 
   useEffect(() => {
     if (!activeProjectId) return;
     const key = `${activeProjectId}:${sessionsPage}`;
-    fetch(apiUrl(`/api/history?project=${encodeURIComponent(activeProjectId)}&page=${sessionsPage}&pageSize=${SESSION_PAGE_SIZE}`, demoMode))
+    fetch(apiUrl(`/api/history?project=${encodeURIComponent(activeProjectId)}&page=${sessionsPage}&pageSize=${SESSION_PAGE_SIZE}`, demoMode, provider))
       .then(res => res.json())
       .then(res => {
         if (res.error) throw new Error(res.error);
@@ -171,7 +182,7 @@ function App() {
         }
       })
       .catch(() => setLoadedKey(key));
-  }, [activeProjectId, sessionsPage, refreshKey, demoMode]);
+  }, [activeProjectId, sessionsPage, refreshKey, demoMode, provider]);
 
   // Write state → hash
   useEffect(() => {
@@ -217,7 +228,7 @@ function App() {
   useEffect(() => {
     if (!activeProjectId || !activeSessionId) { setActiveMessages([]); return; }
     setMessagesLoading(true);
-    fetch(apiUrl(`/api/messages?project=${encodeURIComponent(activeProjectId)}&session=${encodeURIComponent(activeSessionId)}`, demoMode))
+    fetch(apiUrl(`/api/messages?project=${encodeURIComponent(activeProjectId)}&session=${encodeURIComponent(activeSessionId)}`, demoMode, provider))
       .then(r => r.json())
       .then(r => setActiveMessages(r.data || []))
       .catch(() => setActiveMessages([]))
@@ -265,6 +276,23 @@ function App() {
   function handleDemoToggle(v: boolean) {
     setDemoMode(v);
     localStorage.setItem('lens-demo-mode', String(v));
+    refresh();
+  }
+
+  function handleProviderChange(p: Provider) {
+    setProvider(p);
+    localStorage.setItem('lens-provider', p);
+    setActiveProjectId(null);
+    setActiveSessionId(null);
+    setSessions([]);
+    setSessionsPage(0);
+    setLoadedKey(null);
+    const caps = PROVIDER_CAPABILITIES[p];
+    const viewCapMap: Partial<Record<AppView, keyof ProviderCapabilities>> = {
+      logs: 'hasLogs', skills: 'hasSkills', mcps: 'hasMcps', memory: 'hasMemory', plans: 'hasPlans',
+    };
+    const capKey = viewCapMap[currentView as AppView];
+    if (capKey && !caps[capKey]) setCurrentView('history');
     refresh();
   }
 
@@ -319,6 +347,9 @@ function App() {
     return () => window.removeEventListener('keydown', handleKey);
   }, [activeProjectId, activeSessionId, sortedSessions, activeConv]);
 
+  const isClaudeProvider = provider === 'claude';
+  const capabilities = PROVIDER_CAPABILITIES[provider];
+
   return (
     <div className="flex h-screen bg-lens-bg text-lens-text-body font-sans overflow-hidden">
       {/* Sidebar */}
@@ -327,7 +358,14 @@ function App() {
         {!sidebarCollapsed && (
           <div className="p-4 border-b border-lens-border shrink-0">
             <h1 className="text-xl font-medium tracking-tight text-lens-text">Claude Lens</h1>
-            <p className="text-xs text-lens-text-dim mt-1">Local History Explorer</p>
+            <div className="flex items-center gap-2 mt-1">
+              <p className="text-xs text-lens-text-dim">Local History Explorer</p>
+              {isClaudeProvider ? (
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-lens-accent/15 text-lens-accent border border-lens-accent/25 shrink-0">Claude</span>
+              ) : (
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-400 border border-sky-500/25 shrink-0">GH Copilot</span>
+              )}
+            </div>
           </div>
         )}
 
@@ -343,21 +381,31 @@ function App() {
                   <button onClick={() => { setCurrentView('history'); closeProject(); }} title="Chat History" className={`w-full flex justify-center p-2 rounded transition-colors ${currentView === 'history' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
                     <MessageSquare className="w-4 h-4" />
                   </button>
-                  <button onClick={() => { setCurrentView('logs'); closeProject(); }} title="Diagnostics" className={`w-full flex justify-center p-2 rounded transition-colors ${currentView === 'logs' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
-                    <Activity className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => { setCurrentView('skills'); closeProject(); }} title="Skills" className={`w-full flex justify-center p-2 rounded transition-colors ${currentView === 'skills' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
-                    <Layers className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => { setCurrentView('mcps'); closeProject(); }} title="MCPs" className={`w-full flex justify-center p-2 rounded transition-colors ${currentView === 'mcps' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
-                    <Plug className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => { setCurrentView('memory'); closeProject(); }} title="Memory" className={`w-full flex justify-center p-2 rounded transition-colors ${currentView === 'memory' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
-                    <Brain className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => { setCurrentView('plans'); closeProject(); }} title="Plans" className={`w-full flex justify-center p-2 rounded transition-colors ${currentView === 'plans' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
-                    <ClipboardList className="w-4 h-4" />
-                  </button>
+                  {capabilities.hasLogs && (
+                    <button onClick={() => { setCurrentView('logs'); closeProject(); }} title="Diagnostics" className={`w-full flex justify-center p-2 rounded transition-colors ${currentView === 'logs' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
+                      <Activity className="w-4 h-4" />
+                    </button>
+                  )}
+                  {capabilities.hasSkills && (
+                    <button onClick={() => { setCurrentView('skills'); closeProject(); }} title="Skills" className={`w-full flex justify-center p-2 rounded transition-colors ${currentView === 'skills' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
+                      <Layers className="w-4 h-4" />
+                    </button>
+                  )}
+                  {capabilities.hasMcps && (
+                    <button onClick={() => { setCurrentView('mcps'); closeProject(); }} title="MCPs" className={`w-full flex justify-center p-2 rounded transition-colors ${currentView === 'mcps' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
+                      <Plug className="w-4 h-4" />
+                    </button>
+                  )}
+                  {capabilities.hasMemory && (
+                    <button onClick={() => { setCurrentView('memory'); closeProject(); }} title="Memory" className={`w-full flex justify-center p-2 rounded transition-colors ${currentView === 'memory' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
+                      <Brain className="w-4 h-4" />
+                    </button>
+                  )}
+                  {capabilities.hasPlans && (
+                    <button onClick={() => { setCurrentView('plans'); closeProject(); }} title="Plans" className={`w-full flex justify-center p-2 rounded transition-colors ${currentView === 'plans' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
+                      <ClipboardList className="w-4 h-4" />
+                    </button>
+                  )}
                 </>
               )}
             </div>
@@ -373,21 +421,31 @@ function App() {
                   <button onClick={() => { setCurrentView('history'); closeProject(); }} className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center ${currentView === 'history' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
                     <MessageSquare className="w-4 h-4 mr-2 shrink-0" /> Chat History
                   </button>
-                  <button onClick={() => { setCurrentView('logs'); closeProject(); }} className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center ${currentView === 'logs' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
-                    <Activity className="w-4 h-4 mr-2 shrink-0" /> Diagnostics
-                  </button>
-                  <button onClick={() => { setCurrentView('skills'); closeProject(); }} className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center ${currentView === 'skills' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
-                    <Layers className="w-4 h-4 mr-2 shrink-0" /> Skills
-                  </button>
-                  <button onClick={() => { setCurrentView('mcps'); closeProject(); }} className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center ${currentView === 'mcps' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
-                    <Plug className="w-4 h-4 mr-2 shrink-0" /> MCPs
-                  </button>
-                  <button onClick={() => { setCurrentView('memory'); closeProject(); }} className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center ${currentView === 'memory' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
-                    <Brain className="w-4 h-4 mr-2 shrink-0" /> Memory
-                  </button>
-                  <button onClick={() => { setCurrentView('plans'); closeProject(); }} className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center ${currentView === 'plans' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
-                    <ClipboardList className="w-4 h-4 mr-2 shrink-0" /> Plans
-                  </button>
+                  {capabilities.hasLogs && (
+                    <button onClick={() => { setCurrentView('logs'); closeProject(); }} className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center ${currentView === 'logs' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
+                      <Activity className="w-4 h-4 mr-2 shrink-0" /> Diagnostics
+                    </button>
+                  )}
+                  {capabilities.hasSkills && (
+                    <button onClick={() => { setCurrentView('skills'); closeProject(); }} className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center ${currentView === 'skills' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
+                      <Layers className="w-4 h-4 mr-2 shrink-0" /> Skills
+                    </button>
+                  )}
+                  {capabilities.hasMcps && (
+                    <button onClick={() => { setCurrentView('mcps'); closeProject(); }} className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center ${currentView === 'mcps' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
+                      <Plug className="w-4 h-4 mr-2 shrink-0" /> MCPs
+                    </button>
+                  )}
+                  {capabilities.hasMemory && (
+                    <button onClick={() => { setCurrentView('memory'); closeProject(); }} className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center ${currentView === 'memory' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
+                      <Brain className="w-4 h-4 mr-2 shrink-0" /> Memory
+                    </button>
+                  )}
+                  {capabilities.hasPlans && (
+                    <button onClick={() => { setCurrentView('plans'); closeProject(); }} className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center ${currentView === 'plans' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
+                      <ClipboardList className="w-4 h-4 mr-2 shrink-0" /> Plans
+                    </button>
+                  )}
                 </>
               )}
             </>
@@ -438,6 +496,7 @@ function App() {
                           {dur && <span>{dur}</span>}
                           {conv.turnCount !== undefined && <span>{conv.turnCount}t</span>}
                           {totalTok > 0 && <span>{fmt(totalTok)}</span>}
+                          {conv.metadata?.copilotVersion && <span className="text-sky-400">v{conv.metadata.copilotVersion}</span>}
                         </div>
                       </button>
                     );
@@ -490,7 +549,9 @@ function App() {
         {demoMode && (
           <div className="shrink-0 bg-lens-accent/10 border-b border-lens-accent/30 px-4 py-2 flex items-center gap-3">
             <span className="text-lens-accent text-xs font-medium">Demo mode</span>
-            <span className="text-lens-text-dim text-xs flex-1">Showing sample data — not reading from ~/.claude</span>
+            <span className="text-lens-text-dim text-xs flex-1">
+              Showing sample data — not reading from real sources
+            </span>
             <button
               onClick={() => { setCurrentView('settings'); closeProject(); }}
               className="text-[10px] px-2 py-0.5 rounded border border-lens-accent/40 text-lens-accent hover:bg-lens-accent/20 transition-colors shrink-0"
@@ -500,7 +561,7 @@ function App() {
           </div>
         )}
         {currentView === 'settings' ? (
-          <SettingsViewer demoMode={demoMode} hasClaudeDir={hasClaudeDir} onToggle={handleDemoToggle} theme={theme} onThemeChange={handleThemeChange} />
+          <SettingsViewer demoMode={demoMode} hasClaudeDir={hasClaudeDir} hasGhcopilotDir={hasGhcopilotDir} provider={provider} onProviderChange={handleProviderChange} onToggle={handleDemoToggle} theme={theme} onThemeChange={handleThemeChange} />
         ) : currentView === 'logs' ? (
           <LogsViewer key={refreshKey} demoMode={demoMode} />
         ) : currentView === 'skills' ? (
@@ -515,8 +576,8 @@ function App() {
           <div className="flex-1 overflow-y-auto w-full">
             <div className="p-8 max-w-7xl mx-auto">
               <div className="flex items-center gap-3 mb-6">
-                <h2 className="text-2xl font-semibold flex items-center flex-1">
-                  <FolderOpen className="mr-3 text-lens-accent" /> Select a Project
+                <h2 className="text-2xl font-semibold flex items-center flex-1 gap-3">
+                  <FolderOpen className="text-lens-accent shrink-0" /> Select a Project
                 </h2>
                 <div className="flex gap-1">
                   {(['updated', 'sessions', 'name'] as const).map(s => (
@@ -558,6 +619,9 @@ function App() {
                   </>
                 )}
                 {(() => { const d = getSessionDuration(activeConv); return d ? <span><span className="text-lens-text-body">{d}</span></span> : null; })()}
+                {activeConv.metadata?.vscodeVersion && (
+                  <span>VS Code {activeConv.metadata.vscodeVersion}</span>
+                )}
               </div>
 
               {/* Search bar */}
@@ -600,7 +664,7 @@ function App() {
               <button onClick={() => setCollapseSignal(s => s + 1)} className="px-2 py-1 text-[10px] rounded bg-lens-border/80 hover:bg-lens-hover text-lens-text-sub hover:text-lens-text transition-colors shrink-0">
                 Collapse all
               </button>
-              <button onClick={() => exportSession(activeConv, activeMessages)} className="px-2 py-1 text-[10px] rounded bg-lens-border/80 hover:bg-lens-hover text-lens-text-sub hover:text-lens-text transition-colors shrink-0">
+              <button onClick={() => exportSession(activeConv, activeMessages, provider === 'ghcopilot' ? 'Copilot' : 'Claude')} className="px-2 py-1 text-[10px] rounded bg-lens-border/80 hover:bg-lens-hover text-lens-text-sub hover:text-lens-text transition-colors shrink-0">
                 Export ↓
               </button>
             </div>
@@ -645,7 +709,7 @@ function App() {
             </div>
           </div>
         ) : activeProjectId !== null && !activeConv ? (
-          <ProjectDiagnostics key={activeProjectId} projectId={activeProjectId} demoMode={demoMode} />
+          <ProjectDiagnostics key={activeProjectId} projectId={activeProjectId} demoMode={demoMode} provider={provider} />
         ) : (
           <div className="flex-1 flex items-center justify-center text-lens-text-dim">
             <div className="text-center">

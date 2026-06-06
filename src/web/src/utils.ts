@@ -18,9 +18,11 @@ export function formatDuration(ms: number): string {
   return `${h}h ${min % 60}m`;
 }
 
-export function apiUrl(path: string, demoMode: boolean): string {
-  if (!demoMode) return path;
-  return path + (path.includes('?') ? '&' : '?') + 'demo=true';
+export function apiUrl(path: string, demoMode: boolean, provider: import('./types').Provider = 'claude'): string {
+  let url = path;
+  if (provider !== 'claude') url += (url.includes('?') ? '&' : '?') + `provider=${provider}`;
+  if (demoMode) url += (url.includes('?') ? '&' : '?') + 'demo=true';
+  return url;
 }
 
 export function formatRelative(ts: number): string {

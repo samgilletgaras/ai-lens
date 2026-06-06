@@ -202,6 +202,7 @@ export const DEMO_PROJECT_STATS = {
   },
 };
 
+
 export const DEMO_LOGS = {
   data: [
     { project: '-home-demo-myapp', session: SID1, lineNumber: 1, raw: { type: 'userMessage', message: { role: 'user', content: "There's a bug in the JWT authentication middleware." }, timestamp: S1 } },

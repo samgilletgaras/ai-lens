@@ -1,3 +1,15 @@
+export type Provider = 'claude' | 'ghcopilot';
+
+export interface ProviderCapabilities {
+  hasHistory: boolean;
+  hasStats: boolean;
+  hasLogs: boolean;
+  hasSkills: boolean;
+  hasMcps: boolean;
+  hasMemory: boolean;
+  hasPlans: boolean;
+}
+
 export interface Block {
   type: string;
   text?: string;
@@ -43,6 +55,7 @@ export interface ConversationSummary {
   preview: string;
   tokens?: { input: number; output: number; cacheRead: number; cacheCreation: number };
   turnCount?: number;
+  metadata?: Record<string, string>;
 }
 
 export interface Conversation {

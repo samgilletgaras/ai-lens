@@ -121,7 +121,7 @@ function PipelineEvent({ icon: Icon, dotColor, textColor, title, content, isComm
 function AvatarBlock({ isUser, node, timestamp }: { isUser: boolean, node: React.ReactNode, timestamp?: number }) {
   const textColor = isUser ? 'text-lens-accent/70' : 'text-emerald-500/70';
   const bgColor = isUser ? 'bg-lens-accent' : 'bg-emerald-500';
-  const label = isUser ? 'User' : 'Claude';
+  const label = isUser ? 'User' : 'Assistant';
 
   return (
     <div className="relative flex w-full mb-2 group pt-2 pb-6 items-start">

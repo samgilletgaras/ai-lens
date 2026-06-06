@@ -3,13 +3,17 @@ import fs from 'fs';
 import { PORT, CLAUDE_DIR, parseQuery } from './utils.js';
 import { config } from './config.js';
 import * as demo from './demo-data.js';
-import { getProjects, getProjectSessions, getSessionMessages } from './readers/sessions.js';
+import * as claudeProvider from './providers/claude.js';
+import * as ghcopilotProvider from './providers/ghcopilot.js';
+import * as sessions from './readers/sessions.js';
+import * as stats from './readers/stats.js';
 import { getLogs } from './readers/logs.js';
-import { getStats, getProjectStats } from './readers/stats.js';
 import { scanSkillUsage, getSkills, getSkillDetail } from './readers/skills.js';
 import { scanMcpUsage, getMcps } from './readers/mcps.js';
 import { getMemory } from './readers/memory.js';
 import { getPlans } from './readers/plans.js';
+
+const PROVIDERS = { claude: claudeProvider, ghcopilot: ghcopilotProvider };
 
 const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -34,8 +38,15 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  const providerName = q.get('provider') ?? 'claude';
+
   if (q.pathname === '/api/health') {
-    ok({ data: { ok: true, hasClaudeDir: fs.existsSync(CLAUDE_DIR) } });
+    const availability = {};
+    for (const [name, p] of Object.entries(PROVIDERS)) {
+      const key = 'has' + name.charAt(0).toUpperCase() + name.slice(1) + 'Dir';
+      availability[key] = await p.isAvailable();
+    }
+    ok({ data: { ok: true, ...availability } });
     return;
   }
 
@@ -46,7 +57,7 @@ const server = http.createServer(async (req, res) => {
 
   if (q.pathname === '/api/projects') {
     if (q.get('demo')) { ok({ data: demo.DEMO_PROJECTS }); return; }
-    try { ok({ data: await getProjects() }); } catch(e) { err(e.message); }
+    try { ok({ data: await sessions.getProjects(providerName) }); } catch(e) { err(e.message); }
     return;
   }
 
@@ -54,14 +65,15 @@ const server = http.createServer(async (req, res) => {
     const project = q.get('project', null);
     if (!project) { err('project param required'); return; }
     if (q.get('demo')) {
-      const sessions = demo.DEMO_SESSIONS[project] || [];
-      ok({ data: sessions, total: sessions.length, page: 0, pageSize: sessions.length });
+      const pool = demo.DEMO_SESSIONS;
+      const s = pool[project] || [];
+      ok({ data: s, total: s.length, page: 0, pageSize: s.length });
       return;
     }
     const page = Math.max(0, parseInt(q.get('page', '0')));
     const pageSize = Math.max(1, parseInt(q.get('pageSize', '20')));
     try {
-      const { data, total } = await getProjectSessions(project, page, pageSize);
+      const { data, total } = await sessions.getSessions(providerName, project, page, pageSize);
       ok({ data, total, page, pageSize });
     } catch(e) { err(e.message); }
     return;
@@ -72,7 +84,7 @@ const server = http.createServer(async (req, res) => {
     const session = q.get('session', null);
     if (!project || !session) { err('project and session params required'); return; }
     if (q.get('demo')) { ok({ data: demo.DEMO_MESSAGES[session] || [] }); return; }
-    try { ok({ data: await getSessionMessages(project, session) }); } catch(e) { err(e.message); }
+    try { ok({ data: await sessions.getMessages(providerName, project, session) }); } catch(e) { err(e.message); }
     return;
   }
 
@@ -103,7 +115,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     try {
-      const data = project ? await getProjectStats(project) : await getStats();
+      const data = await stats.getStats(providerName, project);
       if (project && !data) { err('Project not found'); return; }
       ok({ data });
     } catch(e) { err(e.message); }
@@ -180,7 +192,7 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`Claude Lens CLI backend running on http://127.0.0.1:${PORT}`);
   setImmediate(() => {
-    getStats().catch(() => {});
+    stats.getStats('claude').catch(() => {});
     scanSkillUsage().catch(() => {});
     scanMcpUsage().catch(() => {});
     getLogs().catch(() => {});
