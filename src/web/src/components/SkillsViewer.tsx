@@ -103,7 +103,7 @@ export function SkillsViewer({ demoMode }: { demoMode?: boolean }) {
           )}
 
           {!contentLoading && skillDetail?.body && (
-            <div className="prose prose-invert prose-zinc max-w-none prose-pre:bg-lens-deep prose-pre:border prose-pre:border-lens-border prose-code:text-amber-200/90 text-lens-text-body">
+            <div className="prose max-w-none prose-pre:bg-lens-deep prose-pre:border prose-pre:border-lens-border prose-code:text-lens-accent text-lens-text-body">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{skillDetail.body}</ReactMarkdown>
             </div>
           )}

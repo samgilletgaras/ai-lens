@@ -104,6 +104,11 @@ function App() {
     const saved = localStorage.getItem('lens-demo-mode');
     return saved !== null ? saved === 'true' : false;
   });
+  const [theme, setTheme] = useState<'default' | 'tycho' | 'parchment'>(() => {
+    const saved = localStorage.getItem('lens-theme');
+    if (saved === 'tycho' || saved === 'parchment') return saved;
+    return 'default';
+  });
   const [hasClaudeDir, setHasClaudeDir] = useState(true);
 
   const sessionScrollRef = useRef<HTMLDivElement>(null);
@@ -113,6 +118,12 @@ function App() {
   const pendingSessionIdRef = useRef<string | null>(null);
 
   useEffect(() => { activeProjectIdRef.current = activeProjectId; }, [activeProjectId]);
+
+  useEffect(() => {
+    const html = document.documentElement;
+    if (theme === 'default') html.removeAttribute('data-theme');
+    else html.setAttribute('data-theme', theme);
+  }, [theme]);
 
   function refresh() {
     setRefreshing(true);
@@ -255,6 +266,11 @@ function App() {
     setDemoMode(v);
     localStorage.setItem('lens-demo-mode', String(v));
     refresh();
+  }
+
+  function handleThemeChange(t: 'default' | 'tycho' | 'parchment') {
+    setTheme(t);
+    localStorage.setItem('lens-theme', t);
   }
 
   function openProject(id: string) {
@@ -484,7 +500,7 @@ function App() {
           </div>
         )}
         {currentView === 'settings' ? (
-          <SettingsViewer demoMode={demoMode} hasClaudeDir={hasClaudeDir} onToggle={handleDemoToggle} />
+          <SettingsViewer demoMode={demoMode} hasClaudeDir={hasClaudeDir} onToggle={handleDemoToggle} theme={theme} onThemeChange={handleThemeChange} />
         ) : currentView === 'logs' ? (
           <LogsViewer key={refreshKey} demoMode={demoMode} />
         ) : currentView === 'skills' ? (

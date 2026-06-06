@@ -2,13 +2,21 @@ import { useEffect, useState } from 'react';
 import { Settings } from 'lucide-react';
 import { apiUrl } from '../utils';
 
+const THEMES: { id: 'default' | 'tycho' | 'parchment'; name: string; colors: string[] }[] = [
+  { id: 'default',   name: 'Carbon',    colors: ['#1e1e1e', '#3f3f46', '#71717a', '#f59e0b'] },
+  { id: 'tycho',     name: 'Tycho',     colors: ['#1e2125', '#333940', '#897981', '#C17A6A'] },
+  { id: 'parchment', name: 'Parchment', colors: ['#f5f0e8', '#ddd4be', '#8b7050', '#b83c1a'] },
+];
+
 interface Props {
   demoMode: boolean;
   hasClaudeDir: boolean;
   onToggle: (value: boolean) => void;
+  theme: 'default' | 'tycho' | 'parchment';
+  onThemeChange: (t: 'default' | 'tycho' | 'parchment') => void;
 }
 
-export function SettingsViewer({ demoMode, hasClaudeDir, onToggle }: Props) {
+export function SettingsViewer({ demoMode, hasClaudeDir, onToggle, theme, onThemeChange }: Props) {
   const [version, setVersion] = useState<string | null>(null);
 
   useEffect(() => {
@@ -58,7 +66,37 @@ export function SettingsViewer({ demoMode, hasClaudeDir, onToggle }: Props) {
               />
             </button>
           </div>
+
+          <div className="border-t border-lens-border" />
+
+          <div className="flex items-center justify-between px-4 py-4">
+            <div>
+              <div className="text-sm font-medium text-lens-text">Theme</div>
+              <div className="text-xs text-lens-text-dim mt-0.5">Choose the color palette for the interface.</div>
+            </div>
+            <div className="shrink-0 ml-6 flex gap-2">
+              {THEMES.map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => onThemeChange(t.id)}
+                  className={`flex flex-col gap-2 px-3 py-2.5 rounded-lg border text-left transition-colors duration-150 ${theme === t.id ? 'border-lens-accent bg-lens-accent/10' : 'border-lens-border hover:border-lens-border-hi'}`}
+                >
+                  <span className={`text-xs font-medium ${theme === t.id ? 'text-lens-accent' : 'text-lens-text-sub'}`}>{t.name}</span>
+                  <div className="flex items-center">
+                    {t.colors.map((color, i) => (
+                      <div
+                        key={i}
+                        style={{ backgroundColor: color, marginLeft: i === 0 ? 0 : -5, zIndex: i }}
+                        className="relative w-3.5 h-3.5 rounded-full border border-lens-deep"
+                      />
+                    ))}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
+
 
         <p className="text-xs text-lens-text-faint mt-6 text-center">
           Claude Lens · local session history explorer{version ? ` · v${version}` : ''}

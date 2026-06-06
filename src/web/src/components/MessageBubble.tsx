@@ -37,7 +37,7 @@ function MarkdownBlock({ text }: { text: string }) {
   
   return (
     <div className="relative group bg-lens-border/20 border border-lens-border/60 rounded-xl p-4 md:p-6 relative">
-      <div className={`prose prose-invert prose-zinc max-w-none prose-pre:bg-lens-deep prose-pre:border prose-pre:border-lens-border prose-code:text-amber-200/90 text-lens-text-body ${!expanded && isLong ? 'line-clamp-6 relative' : ''}`}>
+      <div className={`prose max-w-none prose-pre:bg-lens-deep prose-pre:border prose-pre:border-lens-border prose-code:text-lens-accent text-lens-text-body ${!expanded && isLong ? 'line-clamp-6 relative' : ''}`}>
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
         {!expanded && isLong && (
           <div className="absolute bottom-0 left-0 w-full h-12 bg-gradient-to-t from-lens-bg to-transparent pointer-events-none" />
@@ -95,7 +95,7 @@ function PipelineEvent({ icon: Icon, dotColor, textColor, title, content, isComm
              {useMarkdown && typeof content === 'string' ? (
                 <div className="text-[12px] bg-lens-surface/50 p-4 rounded-xl border border-lens-border/60 shadow-inner relative">
                   <div className="absolute top-2 right-2"><CopyButton text={content} /></div>
-                  <div className="prose prose-invert prose-zinc max-w-none prose-sm prose-pre:bg-lens-deep prose-pre:border prose-pre:border-lens-border prose-p:leading-snug prose-li:leading-snug text-lens-text-sub">
+                  <div className="prose max-w-none prose-sm prose-pre:bg-lens-deep prose-pre:border prose-pre:border-lens-border prose-p:leading-snug prose-li:leading-snug text-lens-text-sub">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
                   </div>
                 </div>

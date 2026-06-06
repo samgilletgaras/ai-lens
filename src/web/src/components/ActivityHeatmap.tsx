@@ -51,11 +51,11 @@ export function ActivityHeatmap({ activity }: { activity: Record<string, number>
   function cellColor(count: number) {
     if (count === 0) return 'bg-lens-border';
     const r = count / maxCount;
-    if (r < 0.2) return 'bg-amber-900/70';
-    if (r < 0.4) return 'bg-amber-800/80';
-    if (r < 0.65) return 'bg-amber-600/80';
-    if (r < 0.85) return 'bg-amber-500';
-    return 'bg-amber-400';
+    if (r < 0.2) return 'bg-lens-heat-1';
+    if (r < 0.4) return 'bg-lens-heat-2';
+    if (r < 0.65) return 'bg-lens-heat-3';
+    if (r < 0.85) return 'bg-lens-heat-4';
+    return 'bg-lens-heat-5';
   }
 
   const monthLabels: Record<number, string> = {};
@@ -129,12 +129,12 @@ export function ActivityHeatmap({ activity }: { activity: Record<string, number>
       </div>
       <div className="flex items-center gap-2 mt-3 justify-end">
         {([
-          { color: 'bg-lens-border',   lo: 0,                               hi: 0 },
-          { color: 'bg-amber-900/70',  lo: 1,                               hi: Math.max(1, Math.floor(maxCount * 0.2)) },
-          { color: 'bg-amber-800/80',  lo: Math.floor(maxCount * 0.2) + 1,  hi: Math.floor(maxCount * 0.4) },
-          { color: 'bg-amber-600/80',  lo: Math.floor(maxCount * 0.4) + 1,  hi: Math.floor(maxCount * 0.65) },
-          { color: 'bg-amber-500',     lo: Math.floor(maxCount * 0.65) + 1, hi: Math.floor(maxCount * 0.85) },
-          { color: 'bg-amber-400',     lo: Math.floor(maxCount * 0.85) + 1, hi: maxCount },
+          { color: 'bg-lens-border',  lo: 0,                               hi: 0 },
+          { color: 'bg-lens-heat-1', lo: 1,                               hi: Math.max(1, Math.floor(maxCount * 0.2)) },
+          { color: 'bg-lens-heat-2', lo: Math.floor(maxCount * 0.2) + 1,  hi: Math.floor(maxCount * 0.4) },
+          { color: 'bg-lens-heat-3', lo: Math.floor(maxCount * 0.4) + 1,  hi: Math.floor(maxCount * 0.65) },
+          { color: 'bg-lens-heat-4', lo: Math.floor(maxCount * 0.65) + 1, hi: Math.floor(maxCount * 0.85) },
+          { color: 'bg-lens-heat-5', lo: Math.floor(maxCount * 0.85) + 1, hi: maxCount },
         ] as { color: string; lo: number; hi: number }[])
           .filter((band, i) => i === 0 || band.lo <= maxCount)
           .map((band, i) => {

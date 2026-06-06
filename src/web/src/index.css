@@ -22,6 +22,79 @@
   /* Accent */
   --color-lens-accent:     #f59e0b;   /* primary accent (amber-500) */
   --color-lens-accent-hi:  #fef3c7;   /* light accent text (amber-100) */
+
+  /* Activity heatmap levels (low → high) */
+  --color-lens-heat-1:     #4a1e07;
+  --color-lens-heat-2:     #7c3610;
+  --color-lens-heat-3:     #b35c08;
+  --color-lens-heat-4:     #f59e0b;
+  --color-lens-heat-5:     #fbbf24;
+}
+
+[data-theme="tycho"] {
+  --color-lens-bg:         #1e2125;
+  --color-lens-surface:    #252a2e;
+  --color-lens-deep:       #171b1e;
+  --color-lens-border:     #2d3237;
+  --color-lens-border-hi:  #897981;
+  --color-lens-hover:      #333940;
+  --color-lens-text:       #f0e9ec;
+  --color-lens-text-body:  #c5aeb9;
+  --color-lens-text-sub:   #a5a1b2;
+  --color-lens-text-dim:   #897981;
+  --color-lens-text-faint: #5e5a68;
+  --color-lens-accent:     #C17A6A;
+  --color-lens-accent-hi:  #dfbab2;
+
+  --color-lens-heat-1:     #3b1e1c;
+  --color-lens-heat-2:     #6b3530;
+  --color-lens-heat-3:     #9a5248;
+  --color-lens-heat-4:     #C17A6A;
+  --color-lens-heat-5:     #d49485;
+}
+
+[data-theme="parchment"] {
+  color-scheme: light;
+
+  --color-lens-bg:         #f5f0e8;
+  --color-lens-surface:    #ede7d5;
+  --color-lens-deep:       #e4dcc5;
+  --color-lens-border:     #d3c9af;
+  --color-lens-border-hi:  #a8977a;
+  --color-lens-hover:      #ddd4be;
+  --color-lens-text:       #1a1208;
+  --color-lens-text-body:  #2e2010;
+  --color-lens-text-sub:   #5c4a30;
+  --color-lens-text-dim:   #8b7050;
+  --color-lens-text-faint: #a89070;
+  --color-lens-accent:     #b83c1a;
+  --color-lens-accent-hi:  #f5ddd0;
+
+  --color-lens-heat-1:     #e8c8b0;
+  --color-lens-heat-2:     #d4a078;
+  --color-lens-heat-3:     #c07848;
+  --color-lens-heat-4:     #b83c1a;
+  --color-lens-heat-5:     #8a2c10;
+}
+
+/* All prose colors driven by lens tokens — works for every theme automatically */
+.prose {
+  --tw-prose-body:          var(--color-lens-text-body);
+  --tw-prose-headings:      var(--color-lens-text);
+  --tw-prose-lead:          var(--color-lens-text-sub);
+  --tw-prose-links:         var(--color-lens-accent);
+  --tw-prose-bold:          var(--color-lens-text);
+  --tw-prose-counters:      var(--color-lens-text-dim);
+  --tw-prose-bullets:       var(--color-lens-text-dim);
+  --tw-prose-hr:            var(--color-lens-border);
+  --tw-prose-quotes:        var(--color-lens-text-body);
+  --tw-prose-quote-borders: var(--color-lens-border-hi);
+  --tw-prose-captions:      var(--color-lens-text-sub);
+  --tw-prose-code:          var(--color-lens-accent);
+  --tw-prose-pre-code:      var(--color-lens-text-body);
+  --tw-prose-pre-bg:        var(--color-lens-deep);
+  --tw-prose-th-borders:    var(--color-lens-border);
+  --tw-prose-td-borders:    var(--color-lens-border-hi);
 }
 
 body {

@@ -161,7 +161,7 @@ export function MemoryViewer({ demoMode }: { demoMode?: boolean }) {
           )}
 
           {!detailLoading && detail?.body && (
-            <div className="prose prose-invert prose-zinc max-w-none prose-pre:bg-lens-deep prose-pre:border prose-pre:border-lens-border prose-code:text-amber-200/90 text-lens-text-body">
+            <div className="prose max-w-none prose-pre:bg-lens-deep prose-pre:border prose-pre:border-lens-border prose-code:text-lens-accent text-lens-text-body">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{detail.body}</ReactMarkdown>
             </div>
           )}
