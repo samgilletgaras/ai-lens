@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react';
 import { Settings } from 'lucide-react';
+import { apiUrl } from '../utils';
 
 interface Props {
   demoMode: boolean;
@@ -7,6 +9,14 @@ interface Props {
 }
 
 export function SettingsViewer({ demoMode, hasClaudeDir, onToggle }: Props) {
+  const [version, setVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(apiUrl('/api/config', demoMode))
+      .then(r => r.json())
+      .then(d => { if (d.data?.version) setVersion(d.data.version); })
+      .catch(() => {});
+  }, [demoMode]);
   return (
     <div className="flex-1 overflow-y-auto w-full">
       <div className="p-8 max-w-2xl mx-auto">
@@ -51,7 +61,7 @@ export function SettingsViewer({ demoMode, hasClaudeDir, onToggle }: Props) {
         </div>
 
         <p className="text-xs text-lens-text-faint mt-6 text-center">
-          Claude Lens · local session history explorer
+          Claude Lens · local session history explorer{version ? ` · v${version}` : ''}
         </p>
       </div>
     </div>

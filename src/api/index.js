@@ -1,6 +1,7 @@
 import http from 'http';
 import fs from 'fs';
 import { PORT, CLAUDE_DIR, parseQuery } from './utils.js';
+import { config } from './config.js';
 import * as demo from './demo-data.js';
 import { getProjects, getProjectSessions, getSessionMessages } from './readers/sessions.js';
 import { getLogs } from './readers/logs.js';
@@ -35,6 +36,11 @@ const server = http.createServer(async (req, res) => {
 
   if (q.pathname === '/api/health') {
     ok({ data: { ok: true, hasClaudeDir: fs.existsSync(CLAUDE_DIR) } });
+    return;
+  }
+
+  if (q.pathname === '/api/config') {
+    ok({ data: config });
     return;
   }
 
