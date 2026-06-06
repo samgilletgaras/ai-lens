@@ -36,7 +36,7 @@ bash start.sh
 Then open http://localhost:5173 in your browser.
 
 ```bash
-npm run dev:cli   # backend only
+npm run dev:api   # backend only
 npm run dev:web   # frontend only
 ```
 

@@ -4,12 +4,12 @@
   "description": "Claude Lens",
   "main": "index.js",
   "scripts": {
-    "dev:cli": "npm --workspace=src/cli run dev",
+    "dev:api": "npm --workspace=src/api run dev",
     "dev:web": "npm --workspace=src/web run dev",
-    "dev": "concurrently --raw \"npm run dev:cli\" \"npm run dev:web\""
+    "dev": "concurrently --raw \"npm run dev:api\" \"npm run dev:web\""
   },
   "workspaces": [
-    "src/cli",
+    "src/api",
     "src/web"
   ],
   "author": "",
