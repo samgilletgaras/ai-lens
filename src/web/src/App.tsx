@@ -1,89 +1,16 @@
 import { useEffect, useState, useRef } from 'react';
-import type { ConversationSummary, ProjectSummary, Block, Message, AttachmentContent, Provider, ProviderInfo, ProviderCapabilities } from './types';
-import { MessageBubble } from './components/MessageBubble';
-import { MessageSquare, Clock, FolderOpen, ArrowLeft, Activity, Layers, Plug, RefreshCw, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Search, X, Brain, ClipboardList, Settings, Bot } from 'lucide-react';
-import { LogsViewer } from './components/LogsViewer';
-import { SkillsViewer } from './components/SkillsViewer';
-import { AgentsViewer } from './components/AgentsViewer';
-import { MCPsViewer } from './components/MCPsViewer';
-import { MemoryViewer } from './components/MemoryViewer';
-import { PlansViewer } from './components/PlansViewer';
+import type { ConversationSummary, ProjectSummary, Message, Provider, ProviderInfo, ProviderCapabilities } from './types';
+import { MessageSquare, Clock, ArrowLeft, RefreshCw, ChevronLeft, ChevronRight, Settings } from 'lucide-react';
 import { ProjectDiagnostics } from './components/ProjectDiagnostics';
 import { SettingsViewer } from './components/SettingsViewer';
-import { prettifyProjectName, formatRelative, fmt, formatDuration, apiUrl, slugify, iconFor } from './utils';
-
-const SESSION_PAGE_SIZE = 20;
-const VALID_VIEWS = ['history', 'logs', 'skills', 'agents', 'mcps', 'memory', 'plans', 'settings'] as const;
-type AppView = typeof VALID_VIEWS[number];
-
-const NO_CAPABILITIES: ProviderCapabilities = {
-  hasHistory: false, hasStats: false, hasLogs: false, hasSkills: false,
-  hasAgents: false, hasMcps: false, hasMemory: false, hasPlans: false,
-};
-
-function extractMessageText(msg: Message): string {
-  if (typeof msg.content === 'string') return msg.content;
-  if (Array.isArray(msg.content)) {
-    return (msg.content as Block[])
-      .map(b => [b.text, b.thinking, typeof b.content === 'string' ? b.content : ''].filter(Boolean).join(' '))
-      .join(' ');
-  }
-  const att = msg.content as AttachmentContent;
-  return [att.command, att.stdout, att.content, att.stderr].filter(Boolean).join(' ');
-}
-
-function getSessionDuration(conv: ConversationSummary): string | null {
-  if (!conv.firstMessageTs || !conv.lastUpdated || conv.lastUpdated <= conv.firstMessageTs) return null;
-  return formatDuration(conv.lastUpdated - conv.firstMessageTs);
-}
-
-function parseHash(hash: string): { view: AppView; projectId: string | null; sessionId: string | null } {
-  const parts = hash.replace(/^#\/?/, '').split('/');
-  const view = (VALID_VIEWS.includes(parts[0] as AppView) ? parts[0] : 'history') as AppView;
-  const projectId = view === 'history' ? (parts[1] || null) : null;
-  const sessionId = projectId ? (parts[2] || null) : null;
-  return { view, projectId, sessionId };
-}
-
-function buildHash(view: AppView, projectId: string | null, sessionId: string | null): string {
-  if (view !== 'history') return `#/${view}`;
-  if (!projectId) return `#/history`;
-  if (!sessionId) return `#/history/${projectId}`;
-  return `#/history/${projectId}/${sessionId}`;
-}
-
-function exportSession(conv: ConversationSummary, messages: Message[], assistantLabel = 'Claude') {
-  const lines: string[] = [`# Session\n\n*${new Date(conv.lastUpdated).toLocaleString()}*\n\n---\n`];
-  [...messages].reverse().forEach(msg => {
-    if (msg.role === 'user') {
-      lines.push('\n\n**User**\n\n');
-      const c = msg.content;
-      if (typeof c === 'string') lines.push(c);
-      else if (Array.isArray(c)) {
-        (c as Block[]).forEach(b => { if (b.type === 'text' && b.text) lines.push(b.text); });
-      }
-    } else if (msg.role === 'assistant') {
-      lines.push(`\n\n**${assistantLabel}**\n\n`);
-      const c = msg.content;
-      if (typeof c === 'string') lines.push(c);
-      else if (Array.isArray(c)) {
-        (c as Block[]).forEach(b => {
-          if (b.type === 'text' && b.text) lines.push(b.text);
-          else if (b.type === 'tool_use') lines.push(`\n*Tool: ${b.name}*\n`);
-        });
-      }
-    }
-  });
-  const blob = new Blob([lines.join('')], { type: 'text/markdown' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `session-${conv.id.slice(0, 8)}.md`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
+import { ProjectGrid } from './components/ProjectGrid';
+import { SessionView } from './components/SessionView';
+import { NavButton } from './components/Nav';
+import { NAV_ITEMS, SIMPLE_VIEWS } from './components/navConfig';
+import { prettifyProjectName, formatRelative, fmt, apiUrl, slugify, iconFor } from './utils';
+import { getSessionDuration } from './session';
+import { SESSION_PAGE_SIZE, NO_CAPABILITIES, parseHash, buildHash } from './routing';
+import type { AppView } from './routing';
 
 function App() {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
@@ -98,14 +25,10 @@ function App() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<AppView>('history');
   const [sessionSort, setSessionSort] = useState<'newest' | 'oldest'>('newest');
-  const [projectSort, setProjectSort] = useState<'updated' | 'sessions' | 'name'>('updated');
-  const [collapseSignal, setCollapseSignal] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [sessionSearch, setSessionSearch] = useState('');
-  const [sessionMatchIdx, setSessionMatchIdx] = useState(0);
   const [demoMode, setDemoMode] = useState<boolean>(() => {
     const saved = localStorage.getItem('lens-demo-mode');
     return saved !== null ? saved === 'true' : false;
@@ -125,8 +48,6 @@ function App() {
   });
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
 
-  const sessionScrollRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const skipHashRead = useRef(false);
   const activeProjectIdRef = useRef<string | null>(null);
   const pendingSessionIdRef = useRef<string | null>(null);
@@ -253,46 +174,11 @@ function App() {
     return () => { ignore = true; };
   }, [activeProjectId, activeSessionId, refreshKey, demoMode]);
 
-  // Clear search when switching sessions — reset during render (React's
-  // "adjust state on prop/value change" idiom) rather than in an effect.
-  const [prevSearchSession, setPrevSearchSession] = useState(activeSessionId);
-  if (activeSessionId !== prevSearchSession) {
-    setPrevSearchSession(activeSessionId);
-    setSessionSearch('');
-    setSessionMatchIdx(0);
-  }
-
   const currentKey = activeProjectId ? `${activeProjectId}:${sessionsPage}` : null;
   const sessionsLoading = currentKey !== null && loadedKey !== currentKey;
   const activeConv = sessions.find(c => c.id === activeSessionId) ?? null;
   const sessionsTotalPages = Math.ceil(sessionsTotal / SESSION_PAGE_SIZE);
   const sortedSessions = sessionSort === 'oldest' ? [...sessions].reverse() : sessions;
-
-  const sortedProjects = [...projects].sort((a, b) => {
-    if (projectSort === 'name') return prettifyProjectName(a.id).localeCompare(prettifyProjectName(b.id));
-    if (projectSort === 'sessions') return b.sessionCount - a.sessionCount;
-    return (b.lastUpdated || 0) - (a.lastUpdated || 0);
-  });
-
-  // Session search
-  const searchQ = sessionSearch.toLowerCase().trim();
-  const displayedMessages: Message[] = [...activeMessages].reverse();
-  const matchedIndices = searchQ
-    ? displayedMessages.reduce<number[]>((acc, msg, i) => {
-        if (extractMessageText(msg).toLowerCase().includes(searchQ)) acc.push(i);
-        return acc;
-      }, [])
-    : [];
-  const clampedMatchIdx = matchedIndices.length > 0
-    ? ((sessionMatchIdx % matchedIndices.length) + matchedIndices.length) % matchedIndices.length
-    : 0;
-
-  // Scroll to focused match
-  useEffect(() => {
-    if (!searchQ || matchedIndices.length === 0) return;
-    document.getElementById(`msg-${matchedIndices[clampedMatchIdx]}`)
-      ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, [clampedMatchIdx, searchQ, matchedIndices.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleDemoToggle(v: boolean) {
     setDemoMode(v);
@@ -353,11 +239,6 @@ function App() {
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'f' && activeConv) {
-        e.preventDefault();
-        searchInputRef.current?.focus();
-        return;
-      }
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
       if (e.key === 'Escape') {
@@ -378,11 +259,12 @@ function App() {
     }
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [activeProjectId, activeSessionId, sortedSessions, activeConv]);
+  }, [activeProjectId, activeSessionId, sortedSessions]);
 
   const activeProviderInfo = providers.find(p => p.id === provider) ?? null;
   const capabilities = activeProviderInfo?.capabilities ?? NO_CAPABILITIES;
   const providerBadgeClass = `provider-badge provider-badge-${provider ? slugify(provider) : ''}`;
+  const SimpleView = SIMPLE_VIEWS[currentView];
 
   return (
     <div className="flex h-screen bg-lens-bg text-lens-text-body font-sans overflow-hidden">
@@ -397,95 +279,31 @@ function App() {
         )}
 
         <div className={`${sidebarCollapsed ? 'p-1' : 'p-2'} border-b border-lens-border shrink-0`}>
-          {sidebarCollapsed ? (
-            <div className="flex flex-col items-center gap-0.5">
-              {activeProjectId !== null ? (
+          {activeProjectId !== null ? (
+            sidebarCollapsed ? (
+              <div className="flex flex-col items-center gap-0.5">
                 <button onClick={closeProject} title="Back to projects" className="w-full flex justify-center p-2 rounded text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30 transition-colors">
                   <ArrowLeft className="w-4 h-4" />
                 </button>
-              ) : (
-                <>
-                  <button onClick={() => { setCurrentView('history'); closeProject(); }} title="Chat History" className={`w-full flex justify-center p-2 rounded transition-colors ${currentView === 'history' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
-                    <MessageSquare className="w-4 h-4" />
-                  </button>
-                  {capabilities.hasLogs && (
-                    <button onClick={() => { setCurrentView('logs'); closeProject(); }} title="Diagnostics" className={`w-full flex justify-center p-2 rounded transition-colors ${currentView === 'logs' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
-                      <Activity className="w-4 h-4" />
-                    </button>
-                  )}
-                  {capabilities.hasSkills && (
-                    <button onClick={() => { setCurrentView('skills'); closeProject(); }} title="Skills" className={`w-full flex justify-center p-2 rounded transition-colors ${currentView === 'skills' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
-                      <Layers className="w-4 h-4" />
-                    </button>
-                  )}
-                  {capabilities.hasAgents && (
-                    <button onClick={() => { setCurrentView('agents'); closeProject(); }} title="Agents" className={`w-full flex justify-center p-2 rounded transition-colors ${currentView === 'agents' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
-                      <Bot className="w-4 h-4" />
-                    </button>
-                  )}
-                  {capabilities.hasMcps && (
-                    <button onClick={() => { setCurrentView('mcps'); closeProject(); }} title="MCPs" className={`w-full flex justify-center p-2 rounded transition-colors ${currentView === 'mcps' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
-                      <Plug className="w-4 h-4" />
-                    </button>
-                  )}
-                  {capabilities.hasMemory && (
-                    <button onClick={() => { setCurrentView('memory'); closeProject(); }} title="Memory" className={`w-full flex justify-center p-2 rounded transition-colors ${currentView === 'memory' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
-                      <Brain className="w-4 h-4" />
-                    </button>
-                  )}
-                  {capabilities.hasPlans && (
-                    <button onClick={() => { setCurrentView('plans'); closeProject(); }} title="Plans" className={`w-full flex justify-center p-2 rounded transition-colors ${currentView === 'plans' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
-                      <ClipboardList className="w-4 h-4" />
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
+              </div>
+            ) : (
+              <button onClick={closeProject} className="w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30" title={activeProjectId}>
+                <ArrowLeft className="w-4 h-4 mr-2 shrink-0" />
+                <span className="truncate flex-1">{prettifyProjectName(activeProjectId)}</span>
+              </button>
+            )
           ) : (
-            <>
-              {activeProjectId !== null ? (
-                <button onClick={closeProject} className="w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30" title={activeProjectId}>
-                  <ArrowLeft className="w-4 h-4 mr-2 shrink-0" />
-                  <span className="truncate flex-1">{prettifyProjectName(activeProjectId)}</span>
-                </button>
-              ) : (
-                <>
-                  <button onClick={() => { setCurrentView('history'); closeProject(); }} className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center ${currentView === 'history' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
-                    <MessageSquare className="w-4 h-4 mr-2 shrink-0" /> Chat History
-                  </button>
-                  {capabilities.hasLogs && (
-                    <button onClick={() => { setCurrentView('logs'); closeProject(); }} className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center ${currentView === 'logs' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
-                      <Activity className="w-4 h-4 mr-2 shrink-0" /> Diagnostics
-                    </button>
-                  )}
-                  {capabilities.hasSkills && (
-                    <button onClick={() => { setCurrentView('skills'); closeProject(); }} className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center ${currentView === 'skills' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
-                      <Layers className="w-4 h-4 mr-2 shrink-0" /> Skills
-                    </button>
-                  )}
-                  {capabilities.hasAgents && (
-                    <button onClick={() => { setCurrentView('agents'); closeProject(); }} className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center ${currentView === 'agents' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
-                      <Bot className="w-4 h-4 mr-2 shrink-0" /> Agents
-                    </button>
-                  )}
-                  {capabilities.hasMcps && (
-                    <button onClick={() => { setCurrentView('mcps'); closeProject(); }} className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center ${currentView === 'mcps' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
-                      <Plug className="w-4 h-4 mr-2 shrink-0" /> MCPs
-                    </button>
-                  )}
-                  {capabilities.hasMemory && (
-                    <button onClick={() => { setCurrentView('memory'); closeProject(); }} className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center ${currentView === 'memory' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
-                      <Brain className="w-4 h-4 mr-2 shrink-0" /> Memory
-                    </button>
-                  )}
-                  {capabilities.hasPlans && (
-                    <button onClick={() => { setCurrentView('plans'); closeProject(); }} className={`w-full text-left px-3 py-2 rounded text-sm transition-colors flex items-center ${currentView === 'plans' ? 'bg-lens-border/60 text-lens-text' : 'text-lens-text-sub hover:text-lens-text hover:bg-lens-border/30'}`}>
-                      <ClipboardList className="w-4 h-4 mr-2 shrink-0" /> Plans
-                    </button>
-                  )}
-                </>
-              )}
-            </>
+            <div className={sidebarCollapsed ? 'flex flex-col items-center gap-0.5' : undefined}>
+              {NAV_ITEMS.filter(it => it.cap === null || capabilities[it.cap]).map(it => (
+                <NavButton
+                  key={it.view}
+                  item={it}
+                  collapsed={sidebarCollapsed}
+                  active={currentView === it.view}
+                  onClick={() => { setCurrentView(it.view); closeProject(); }}
+                />
+              ))}
+            </div>
           )}
         </div>
 
@@ -619,161 +437,18 @@ function App() {
         )}
         {currentView === 'settings' ? (
           <SettingsViewer demoMode={demoMode} providers={providers} provider={provider} onProviderChange={handleProviderChange} onToggle={handleDemoToggle} theme={theme} onThemeChange={handleThemeChange} />
-        ) : currentView === 'logs' ? (
-          <LogsViewer key={refreshKey} demoMode={demoMode} />
-        ) : currentView === 'skills' ? (
-          <SkillsViewer key={refreshKey} demoMode={demoMode} />
-        ) : currentView === 'agents' ? (
-          <AgentsViewer key={refreshKey} demoMode={demoMode} />
-        ) : currentView === 'mcps' ? (
-          <MCPsViewer key={refreshKey} demoMode={demoMode} />
-        ) : currentView === 'memory' ? (
-          <MemoryViewer key={refreshKey} demoMode={demoMode} />
-        ) : currentView === 'plans' ? (
-          <PlansViewer key={refreshKey} demoMode={demoMode} />
+        ) : SimpleView ? (
+          <SimpleView key={refreshKey} demoMode={demoMode} />
         ) : activeProjectId === null ? (
-          <div className="flex-1 overflow-y-auto w-full">
-            <div className="p-8 max-w-7xl mx-auto">
-              <div className="flex items-center gap-3 mb-6">
-                <h2 className="text-2xl font-semibold flex items-center flex-1 gap-3">
-                  <FolderOpen className="text-lens-accent shrink-0" /> Select a Project
-                </h2>
-                <div className="flex gap-1">
-                  {(['updated', 'sessions', 'name'] as const).map(s => (
-                    <button key={s} onClick={() => setProjectSort(s)} className={`px-2 py-1 text-xs rounded transition-colors ${projectSort === s ? 'bg-lens-border text-lens-accent' : 'text-lens-text-faint hover:text-lens-text-body'}`}>
-                      {s === 'updated' ? 'Recent' : s === 'sessions' ? 'Sessions' : 'A–Z'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {sortedProjects.map(proj => (
-                  <button key={proj.id} onClick={() => openProject(proj.id)} className="bg-lens-surface border border-lens-border hover:border-lens-border-hi rounded-lg p-6 text-left transition-colors flex flex-col">
-                    <div className="flex items-center gap-2 mb-2 flex-wrap">
-                      <span className="font-medium text-lens-text text-lg">{prettifyProjectName(proj.id)}</span>
-                      {proj.provider && (
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded border shrink-0 provider-badge provider-badge-${slugify(proj.provider)}`}>
-                          {providers.find(p => p.id === proj.provider)?.name ?? proj.provider}
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs text-lens-text-dim truncate mb-4" title={proj.fullPath}>{proj.fullPath}</div>
-                    <div className="mt-auto flex items-center justify-between text-xs text-lens-text-sub">
-                      <span>{proj.sessionCount} Sessions</span>
-                      <span>{proj.lastUpdated ? formatRelative(proj.lastUpdated) : 'Never'}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+          <ProjectGrid projects={projects} providers={providers} onOpen={openProject} />
         ) : activeConv ? (
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Session header */}
-            <div className="shrink-0 border-b border-lens-border px-4 md:px-8 lg:px-12 py-2.5 flex items-center gap-3 bg-lens-deep/50 flex-wrap">
-              <div className="flex-1 min-w-0 flex items-center gap-3 text-[11px] text-lens-text-dim flex-wrap">
-                {activeConv.turnCount !== undefined && (
-                  <span><span className="text-lens-text-body tabular-nums">{activeConv.turnCount}</span> turns</span>
-                )}
-                {activeConv.tokens && activeConv.tokens.input > 0 && (
-                  <>
-                    <span><span className="text-lens-text-body tabular-nums">{fmt(activeConv.tokens.input)}</span> in</span>
-                    <span><span className="text-lens-text-body tabular-nums">{fmt(activeConv.tokens.output)}</span> out</span>
-                    {activeConv.tokens.cacheRead > 0 && (
-                      <span><span className="text-sky-400 tabular-nums">{fmt(activeConv.tokens.cacheRead)}</span> cached</span>
-                    )}
-                  </>
-                )}
-                {(() => { const d = getSessionDuration(activeConv); return d ? <span><span className="text-lens-text-body">{d}</span></span> : null; })()}
-                {activeConv.metadata?.vscodeVersion && (
-                  <span>VS Code {activeConv.metadata.vscodeVersion}</span>
-                )}
-              </div>
-
-              {/* Search bar */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                <div className="relative flex items-center">
-                  <Search className="absolute left-2 w-3 h-3 text-lens-text-faint pointer-events-none" />
-                  <input
-                    ref={searchInputRef}
-                    type="text"
-                    value={sessionSearch}
-                    onChange={e => { setSessionSearch(e.target.value); setSessionMatchIdx(0); }}
-                    onKeyDown={e => {
-                      if (e.key === 'Escape') { setSessionSearch(''); e.currentTarget.blur(); }
-                      if (e.key === 'Enter') { e.preventDefault(); setSessionMatchIdx(i => i + (e.shiftKey ? -1 : 1)); }
-                    }}
-                    placeholder="Search… (⌘F)"
-                    className="bg-lens-surface border border-lens-border focus:border-lens-border-hi rounded pl-6 pr-6 py-0.5 text-[11px] text-lens-text-body placeholder:text-lens-text-faint outline-none w-32 transition-colors"
-                  />
-                  {sessionSearch && (
-                    <button onClick={() => setSessionSearch('')} className="absolute right-1.5 text-lens-text-faint hover:text-lens-text-sub transition-colors">
-                      <X className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-                {searchQ && (
-                  <>
-                    <span className="text-[10px] text-lens-text-dim tabular-nums whitespace-nowrap">
-                      {matchedIndices.length > 0 ? `${clampedMatchIdx + 1} / ${matchedIndices.length}` : 'No matches'}
-                    </span>
-                    <button onClick={() => setSessionMatchIdx(i => i - 1)} disabled={matchedIndices.length === 0} title="Previous match (Shift+Enter)" className="p-0.5 rounded text-lens-text-sub hover:text-lens-text disabled:opacity-30 transition-colors">
-                      <ChevronUp className="w-3.5 h-3.5" />
-                    </button>
-                    <button onClick={() => setSessionMatchIdx(i => i + 1)} disabled={matchedIndices.length === 0} title="Next match (Enter)" className="p-0.5 rounded text-lens-text-sub hover:text-lens-text disabled:opacity-30 transition-colors">
-                      <ChevronDown className="w-3.5 h-3.5" />
-                    </button>
-                  </>
-                )}
-              </div>
-
-              <button onClick={() => setCollapseSignal(s => s + 1)} className="px-2 py-1 text-[10px] rounded bg-lens-border/80 hover:bg-lens-hover text-lens-text-sub hover:text-lens-text transition-colors shrink-0">
-                Collapse all
-              </button>
-              <button onClick={() => exportSession(activeConv, activeMessages, activeProviderInfo?.name ?? 'Assistant')} className="px-2 py-1 text-[10px] rounded bg-lens-border/80 hover:bg-lens-hover text-lens-text-sub hover:text-lens-text transition-colors shrink-0">
-                Export ↓
-              </button>
-            </div>
-
-            {/* Messages */}
-            <div ref={sessionScrollRef} className="flex-1 overflow-y-auto w-full relative">
-              {messagesLoading && (
-                <div className="flex items-center justify-center h-32 text-lens-text-dim text-sm">
-                  Loading messages…
-                </div>
-              )}
-              <div className="p-8 pb-32 max-w-7xl mx-auto">
-                {!messagesLoading && displayedMessages.map((msg, i) => (
-                  <div
-                    key={i}
-                    id={`msg-${i}`}
-                    className={searchQ && matchedIndices.length > 0 && !matchedIndices.includes(i) ? 'opacity-30 transition-opacity duration-150' : 'transition-opacity duration-150'}
-                  >
-                    <MessageBubble message={msg} collapseSignal={collapseSignal} />
-                  </div>
-                ))}
-              </div>
-              {/* Floating scroll buttons */}
-              <div className="sticky bottom-4 flex justify-end pr-4 pointer-events-none">
-                <div className="flex flex-col gap-1 pointer-events-auto">
-                  <button
-                    onClick={() => sessionScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
-                    title="Scroll to top"
-                    className="p-1.5 rounded bg-lens-border/80 hover:bg-lens-hover text-lens-text-sub hover:text-lens-text transition-colors shadow-md"
-                  >
-                    <ChevronUp className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => sessionScrollRef.current?.scrollTo({ top: sessionScrollRef.current.scrollHeight, behavior: 'smooth' })}
-                    title="Scroll to bottom"
-                    className="p-1.5 rounded bg-lens-border/80 hover:bg-lens-hover text-lens-text-sub hover:text-lens-text transition-colors shadow-md"
-                  >
-                    <ChevronDown className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <SessionView
+            key={activeConv.id}
+            conv={activeConv}
+            messages={activeMessages}
+            loading={messagesLoading}
+            assistantLabel={activeProviderInfo?.name ?? 'Assistant'}
+          />
         ) : activeProjectId !== null && !activeConv ? (
           <ProjectDiagnostics key={activeProjectId} projectId={activeProjectId} demoMode={demoMode} />
         ) : (
