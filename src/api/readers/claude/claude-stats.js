@@ -22,7 +22,7 @@ async function globalStats() {
   if (!fs.existsSync(PROJECTS_DIR)) return { totals: { sessions: 0, messages: 0, toolCalls: 0 }, tokens: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0, cacheHitRate: 0 }, stopReasons: {}, models: {}, hooks: { success: 0, failure: 0, avgDurationMs: 0 }, topProjects: [], activity: {}, estimatedCostUsd: 0 };
 
   let sessions = 0, messages = 0, toolCalls = 0, tokInput = 0, tokOutput = 0, tokCacheRead = 0, tokCacheCreation = 0;
-  const stopReasons = {}, models = {}, projectStats = {}, activityByDay = {}, tokensByModel = {};
+  const stopReasons = {}, models = {}, toolUsage = {}, projectStats = {}, activityByDay = {}, tokensByModel = {};
   let hookSuccess = 0, hookFailure = 0, hookDurationTotal = 0, hookCount = 0;
 
   for (const proj of fs.readdirSync(PROJECTS_DIR)) {
@@ -52,7 +52,7 @@ async function globalStats() {
               tokInput += inp; tokOutput += out; tokCacheRead += cr; tokCacheCreation += cc; projectStats[proj].tokenCount += inp + out;
               if (msg.model) { if (!tokensByModel[msg.model]) tokensByModel[msg.model] = { input: 0, output: 0 }; tokensByModel[msg.model].input += inp; tokensByModel[msg.model].output += out; }
             }
-            if (Array.isArray(msg.content)) for (const b of msg.content) if (b?.type === 'tool_use') toolCalls++;
+            if (Array.isArray(msg.content)) for (const b of msg.content) if (b?.type === 'tool_use') { toolCalls++; const n = b.name || 'unknown'; toolUsage[n] = (toolUsage[n] || 0) + 1; }
           } else if (p.type === 'attachment') {
             const att = p.attachment; if (!att) continue;
             if (att.type === 'hook_success') { hookSuccess++; if (typeof att.durationMs === 'number') { hookDurationTotal += att.durationMs; hookCount++; } }
@@ -69,6 +69,7 @@ async function globalStats() {
     totals: { sessions, messages, toolCalls },
     tokens: { input: tokInput, output: tokOutput, cacheRead: tokCacheRead, cacheCreation: tokCacheCreation, cacheHitRate: total > 0 ? Math.round((tokCacheRead / total) * 100) : 0 },
     stopReasons, models,
+    topTools: Object.entries(toolUsage).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([name, count]) => ({ name, count })),
     hooks: { success: hookSuccess, failure: hookFailure, avgDurationMs: hookCount > 0 ? Math.round(hookDurationTotal / hookCount) : 0 },
     topProjects: Object.entries(projectStats).sort((a, b) => b[1].messageCount - a[1].messageCount).slice(0, 5).map(([id, s]) => ({ id, messageCount: s.messageCount, tokenCount: s.tokenCount })),
     activity: activityByDay, estimatedCostUsd: calcCost(tokensByModel),

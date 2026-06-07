@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
+import { FolderOpen } from 'lucide-react';
 import type { ProjectStats } from '../types';
-import { fmt, apiUrl } from '../utils';
+import { fmt, apiUrl, prettifyProjectName } from '../utils';
 import { ActivityHeatmap } from './ActivityHeatmap';
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
@@ -22,15 +23,15 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
-function BarRow({ label, value, max, color = 'bg-lens-accent/40' }: { label: string; value: number; max: number; color?: string }) {
+function BarRow({ label, value, max, color = 'bg-lens-accent/40', compact = false }: { label: string; value: number; max: number; color?: string; compact?: boolean }) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0;
   return (
-    <div className="mb-2 last:mb-0">
-      <div className="flex justify-between text-xs text-lens-text-sub mb-1">
+    <div className={`group ${compact ? 'mb-1 last:mb-0' : 'mb-2 last:mb-0'}`}>
+      <div className={`flex justify-between items-center text-lens-text-sub group-hover:text-lens-text mb-0.5 transition-colors ${compact ? 'text-[11px]' : 'text-xs'} mb-1`}>
         <span className="truncate mr-2 max-w-[180px]">{label}</span>
-        <span className="tabular-nums shrink-0">{value.toLocaleString()}</span>
+        <span className="tabular-nums shrink-0">{value.toLocaleString()} <span className="text-lens-text-faint group-hover:text-lens-text-sub">({pct}%)</span></span>
       </div>
-      <div className="h-1.5 bg-lens-border rounded-full overflow-hidden">
+      <div className={`bg-lens-border rounded-full overflow-hidden ${compact ? 'h-1' : 'h-1.5'}`}>
         <div className={`h-full ${color} rounded-full`} style={{ width: `${pct}%` }} />
       </div>
     </div>
@@ -83,26 +84,26 @@ export function ProjectDiagnostics({ projectId, demoMode }: { projectId: string;
   const hasTokenData = totalTokens > 0;
   const topTools = stats.topTools ?? [];
   const maxTool = Math.max(...topTools.map(t => t.count), 1);
-  const maxModel = Math.max(...Object.values(stats.models), 1);
+  const sortedModels = Object.entries(stats.models).sort((a, b) => b[1] - a[1]);
+  const maxModel = Math.max(...sortedModels.map(([, v]) => v), 1);
+  const hasBothModelsTool = sortedModels.length > 0 && topTools.length > 0;
 
   return (
     <div className="flex-1 overflow-y-auto w-full">
       <div className="p-8 max-w-7xl mx-auto">
-        {/* Summary cards */}
-        <div className={`grid gap-4 mb-6 ${hasTokenData ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2 lg:grid-cols-3'}`}>
-          <StatCard label="Sessions" value={stats.totals.sessions.toLocaleString()} />
-          <StatCard label="Messages" value={fmt(stats.totals.messages)} />
-          <StatCard label="Tool Calls" value={fmt(stats.totals.toolCalls)} />
-          {hasTokenData && (
-            <StatCard
-              label="Est. Cost"
-              value={`$${stats.estimatedCostUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-              sub={`${fmt(totalTokens)} tokens total`}
-            />
-          )}
+        <div className="flex items-center mb-2">
+          <h2 className="text-2xl font-semibold flex items-center truncate">
+            <FolderOpen className="mr-3 shrink-0 text-lens-accent" /> {prettifyProjectName(projectId)}
+          </h2>
+        </div>
+        <p className="text-lens-text-dim text-sm mb-6">Project diagnostics</p>
+
+        {/* Heatmap */}
+        <div className="bg-lens-surface border border-lens-border rounded-lg p-4 mb-6">
+          <ActivityHeatmap activity={stats.activity ?? {}} />
         </div>
 
-        {/* Token breakdown — only when data is available */}
+        {/* Token breakdown — immediately below heatmap, only when data exists */}
         {hasTokenData && (
           <div className="bg-lens-surface border border-lens-border rounded-lg p-4 mb-6">
             <div className="text-[10px] uppercase tracking-wider text-lens-text-dim mb-2">Tokens</div>
@@ -119,31 +120,39 @@ export function ProjectDiagnostics({ projectId, demoMode }: { projectId: string;
           </div>
         )}
 
-        {/* Activity heatmap */}
-        <div className="bg-lens-surface border border-lens-border rounded-lg p-4 mb-6">
-          <ActivityHeatmap activity={stats.activity ?? {}} />
+        {/* Summary cards */}
+        <div className={`grid gap-4 mb-6 ${hasTokenData ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2 lg:grid-cols-3'}`}>
+          <StatCard label="Sessions" value={stats.totals.sessions.toLocaleString()} />
+          <StatCard label="Messages" value={fmt(stats.totals.messages)} />
+          <StatCard label="Tool Calls" value={fmt(stats.totals.toolCalls)} />
+          {hasTokenData && (
+            <StatCard
+              label="Est. Cost"
+              value={`$${stats.estimatedCostUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              sub={`${fmt(totalTokens)} tokens total`}
+            />
+          )}
         </div>
 
-        {/* Top tools + Models */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          {topTools.length > 0 && (
-            <Panel title="Top Tools">
-              {topTools.map(t => (
-                <BarRow key={t.name} label={t.name} value={t.count} max={maxTool} color="bg-lens-accent/40" />
-              ))}
-            </Panel>
-          )}
-          {Object.keys(stats.models).length > 0 && (
-            <Panel title="Models Used">
-              {Object.entries(stats.models)
-                .sort((a, b) => b[1] - a[1])
-                .map(([model, count]) => (
-                  <BarRow key={model} label={model} value={count} max={maxModel} />
-                ))
-              }
-            </Panel>
-          )}
-        </div>
+        {/* Top Models + Top Tools — compact, single panel takes full width when the other has no data */}
+        {(sortedModels.length > 0 || topTools.length > 0) && (
+          <div className={`grid grid-cols-1 gap-4 mb-8 ${hasBothModelsTool ? 'md:grid-cols-2' : ''}`}>
+            {sortedModels.length > 0 && (
+              <Panel title="Top Models">
+                {sortedModels.map(([model, count]) => (
+                  <BarRow key={model} label={model} value={count} max={maxModel} compact />
+                ))}
+              </Panel>
+            )}
+            {topTools.length > 0 && (
+              <Panel title="Top Tools">
+                {topTools.map(t => (
+                  <BarRow key={t.name} label={t.name} value={t.count} max={maxTool} color="bg-lens-accent/40" compact />
+                ))}
+              </Panel>
+            )}
+          </div>
+        )}
 
         <p className="text-center text-xs text-lens-text-faint">j/k or ↑↓ to navigate sessions · Esc to go back</p>
       </div>

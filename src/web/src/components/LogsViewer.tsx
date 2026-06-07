@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Activity } from 'lucide-react';
+import { Activity, ChevronDown } from 'lucide-react';
 import type { DiagnosticsStats, ProviderInfo } from '../types';
 import { prettifyProjectName, fmt, apiUrl } from '../utils';
 import { ActivityHeatmap } from './ActivityHeatmap';
@@ -29,10 +29,10 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
 function BarRow({ label, value, max, color = 'bg-lens-accent/40' }: { label: React.ReactNode; value: number; max: number; color?: string }) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0;
   return (
-    <div className="mb-2 last:mb-0">
-      <div className="flex justify-between items-center text-xs text-lens-text-sub mb-1">
+    <div className="mb-2 last:mb-0 group">
+      <div className="flex justify-between items-center text-xs text-lens-text-sub group-hover:text-lens-text mb-1 transition-colors">
         <div className="flex items-center gap-1.5 min-w-0 mr-2">{label}</div>
-        <span className="tabular-nums shrink-0">{value.toLocaleString()} <span className="text-lens-text-faint">({pct}%)</span></span>
+        <span className="tabular-nums shrink-0">{value.toLocaleString()} <span className="text-lens-text-faint group-hover:text-lens-text-sub">({pct}%)</span></span>
       </div>
       <div className="h-1.5 bg-lens-border rounded-full overflow-hidden">
         <div className={`h-full ${color} rounded-full`} style={{ width: `${pct}%` }} />
@@ -45,6 +45,8 @@ export function LogsViewer({ demoMode, providers = [], provider }: { demoMode?: 
   const [stats, setStats] = useState<DiagnosticsStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showMore, setShowMore] = useState(false);
+  const [showCostDetail, setShowCostDetail] = useState(false);
 
   useEffect(() => {
     let ignore = false;
@@ -97,7 +99,7 @@ export function LogsViewer({ demoMode, providers = [], provider }: { demoMode?: 
   const topProjects = stats.topProjects ?? [];
   const maxProjectMsgs = Math.max(...topProjects.map(p => p.messageCount), 1);
   const hasHooks = stats.hooks.success + stats.hooks.failure > 0;
-  const topTools = (stats as DiagnosticsStats & { topTools?: { name: string; count: number }[] }).topTools ?? [];
+  const topTools = stats.topTools ?? [];
   const hasTokensInProjects = topProjects.some(p => p.tokenCount > 0);
   // Per-provider cost split, surfaced only in All-Providers mode (>1 contributing provider).
   const costByProvider = Object.entries(stats.estimatedCostByProvider ?? {}).sort((a, b) => b[1] - a[1]);
@@ -109,6 +111,9 @@ export function LogsViewer({ demoMode, providers = [], provider }: { demoMode?: 
     ...stopReasonOrder.filter(k => stopReasons[k] !== undefined).map(k => [k, stopReasons[k]] as [string, number]),
     ...sortedStopReasons.filter(([k]) => !stopReasonOrder.includes(k)),
   ];
+  const hasBothModelsTool = sortedModels.length > 0 && topTools.length > 0;
+  const hasBothTokenHook = hasTokens && hasHooks;
+  const hasMoreData = hasTokens || hasHooks || orderedStopReasons.length > 0;
 
   return (
     <div className="flex-1 overflow-y-auto w-full">
@@ -144,65 +149,97 @@ export function LogsViewer({ demoMode, providers = [], provider }: { demoMode?: 
           <div className="bg-lens-surface border border-lens-border rounded-lg p-4 mb-6">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-[10px] uppercase tracking-wider text-lens-text-dim mb-1">Estimated Cost{showCostBreakdown && ' — Total'}</div>
+                <div className="text-[10px] uppercase tracking-wider text-lens-text-dim mb-1">Estimated Cost</div>
                 <div className="text-3xl font-semibold text-lens-text tabular-nums">${usd(stats.estimatedCostUsd)}</div>
               </div>
               <div className="text-right text-xs text-lens-text-faint max-w-xs">
                 Approximate, based on public model pricing for input/output tokens. Cache tokens not billed.
               </div>
             </div>
-            {/* Per-provider split (All Providers view) */}
+            {/* Per-provider drawer (All Providers view) */}
             {showCostBreakdown && (
-              <div className="mt-4 pt-3 border-t border-lens-border space-y-2">
-                {costByProvider.map(([id, cost]) => (
-                  <div key={id} className="flex items-center justify-between text-sm">
-                    <ProviderBadge id={id} providers={providers} />
-                    <span className="text-lens-text-body tabular-nums">${usd(cost)}{cost <= 0 && <span className="text-lens-text-faint">*</span>}</span>
+              <>
+                <button
+                  onClick={() => setShowCostDetail(v => !v)}
+                  className="flex items-center gap-1.5 text-xs text-lens-text-dim hover:text-lens-text-sub mt-3 transition-colors"
+                >
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${showCostDetail ? 'rotate-180' : ''}`} />
+                  {showCostDetail ? 'Hide per-provider breakdown' : 'Open to see cost split across providers'}
+                </button>
+                {showCostDetail && (
+                  <div className="mt-3 pt-3 border-t border-lens-border space-y-2">
+                    {costByProvider.map(([id, cost]) => (
+                      <div key={id} className="flex items-center justify-between text-sm">
+                        <ProviderBadge id={id} providers={providers} />
+                        <span className="text-lens-text-body tabular-nums">${usd(cost)}{cost <= 0 && <span className="text-lens-text-faint">*</span>}</span>
+                      </div>
+                    ))}
+                    {hasZeroCostProvider && (
+                      <p className="text-[10px] text-lens-text-faint pt-1">* cost unknown: token pricing for this provider is not yet tracked</p>
+                    )}
                   </div>
-                ))}
-                {hasZeroCostProvider && (
-                  <p className="text-[10px] text-lens-text-faint pt-1">* cost unknown: token pricing for this provider is not yet tracked</p>
                 )}
-              </div>
+              </>
             )}
           </div>
         )}
 
-        {/* Top tools (present in per-provider global stats when applicable) */}
-        {topTools.length > 0 && (
+        {/* Top projects */}
+        {topProjects.length > 0 && (
           <div className="mb-4">
-            <Panel title="Top Tools">
-              {topTools.map(t => (
-                <BarRow key={t.name} label={t.name} value={t.count} max={Math.max(...topTools.map(x => x.count), 1)} color="bg-lens-accent/40" />
-              ))}
+            <Panel title="Top Projects by Activity">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-lens-border">
+                    <th className="text-left py-2 text-[10px] uppercase tracking-wider text-lens-text-dim font-normal">Project</th>
+                    <th className="text-right py-2 text-[10px] uppercase tracking-wider text-lens-text-dim font-normal">Messages</th>
+                    {hasTokensInProjects && <th className="text-right py-2 text-[10px] uppercase tracking-wider text-lens-text-dim font-normal">Tokens</th>}
+                    <th className="w-1/3 py-2 pl-4"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topProjects.map(proj => (
+                    <tr key={proj.id} className="border-b border-lens-border/50 last:border-0">
+                      <td className="py-2 text-lens-text-body max-w-[200px]">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate">{prettifyProjectName(proj.id)}</span>
+                          {proj.provider && <ProviderBadge id={proj.provider} providers={providers} />}
+                        </div>
+                      </td>
+                      <td className="py-2 text-right text-lens-text-sub tabular-nums">{proj.messageCount.toLocaleString()}</td>
+                      {hasTokensInProjects && <td className="py-2 text-right text-lens-text-sub tabular-nums">{fmt(proj.tokenCount)}</td>}
+                      <td className="py-2 pl-4">
+                        <div className="h-1.5 bg-lens-border rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-lens-accent/40 rounded-full"
+                            style={{ width: `${Math.round((proj.messageCount / maxProjectMsgs) * 100)}%` }}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </Panel>
           </div>
         )}
 
-        {/* Stop reasons + Models — only when non-empty */}
-        {(orderedStopReasons.length > 0 || sortedModels.length > 0) && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            {orderedStopReasons.length > 0 && (
-              <Panel title="Stop Reasons">
-                {orderedStopReasons.map(([reason, count]) => (
-                  <BarRow key={reason} label={reason} value={count} max={maxStopReason} color="bg-lens-accent/40" />
-                ))}
-              </Panel>
-            )}
+        {/* Top Models + Top Tools — single panel takes full width when the other has no data */}
+        {(sortedModels.length > 0 || topTools.length > 0) && (
+          <div className={`grid grid-cols-1 gap-4 mb-4 ${hasBothModelsTool ? 'md:grid-cols-2' : ''}`}>
             {sortedModels.length > 0 && (
-              <Panel title="Models Used">
+              <Panel title="Top Models">
                 {sortedModels.map(([model, count]) => {
                   const slash = isAllProviders ? model.indexOf('/') : -1;
                   const pid = slash !== -1 ? model.slice(0, slash) : null;
                   const name = slash !== -1 ? model.slice(slash + 1) : model;
-                  const badge = pid ? (providers.find(p => p.id === pid)?.name ?? pid) : null;
                   return (
                     <BarRow
                       key={model}
                       label={
                         <>
                           <span className="truncate">{name}</span>
-                          {badge && <span className="shrink-0 px-1 py-px text-[9px] rounded border border-lens-border text-lens-text-dim font-mono">{badge}</span>}
+                          {pid && <ProviderBadge id={pid} providers={providers} className="opacity-50 group-hover:opacity-100 transition-opacity !text-[8px] !px-1 !py-px" />}
                         </>
                       }
                       value={count}
@@ -212,93 +249,104 @@ export function LogsViewer({ demoMode, providers = [], provider }: { demoMode?: 
                 })}
               </Panel>
             )}
-          </div>
-        )}
-
-        {/* Token breakdown + Hook health — only when data exists */}
-        {(hasTokens || hasHooks) && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            {hasTokens && (
-              <Panel title="Token Breakdown">
-                <BarRow label="Input" value={stats.tokens.input} max={maxToken} color="bg-violet-500/40" />
-                <BarRow label="Output" value={stats.tokens.output} max={maxToken} color="bg-emerald-500/40" />
-                <BarRow label="Cache Read" value={stats.tokens.cacheRead} max={maxToken} color="bg-sky-500/40" />
-                <BarRow label="Cache Created" value={stats.tokens.cacheCreation} max={maxToken} color="bg-lens-border/80" />
-              </Panel>
-            )}
-            {hasHooks && (
-              <Panel title="Hook Health">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                      <span className="text-sm text-lens-text-sub">Successes</span>
-                    </div>
-                    <span className="text-lens-text tabular-nums font-medium">{stats.hooks.success.toLocaleString()}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-rose-500" />
-                      <span className="text-sm text-lens-text-sub">Failures</span>
-                    </div>
-                    <span className="text-lens-text tabular-nums font-medium">{stats.hooks.failure.toLocaleString()}</span>
-                  </div>
-                  {stats.hooks.success + stats.hooks.failure > 0 && (
-                    <div className="flex items-center justify-between border-t border-lens-border pt-3">
-                      <span className="text-sm text-lens-text-sub">Success Rate</span>
-                      <span className="text-lens-text font-medium">
-                        {Math.round((stats.hooks.success / (stats.hooks.success + stats.hooks.failure)) * 100)}%
-                      </span>
-                    </div>
-                  )}
-                  {stats.hooks.avgDurationMs > 0 && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-lens-text-sub">Avg Duration</span>
-                      <span className="text-lens-text font-medium tabular-nums">{stats.hooks.avgDurationMs}ms</span>
-                    </div>
-                  )}
-                </div>
+            {topTools.length > 0 && (
+              <Panel title="Top Tools">
+                {topTools.map(({ name: key, count }) => {
+                  const slash = isAllProviders ? key.indexOf('/') : -1;
+                  const pid = slash !== -1 ? key.slice(0, slash) : null;
+                  const name = slash !== -1 ? key.slice(slash + 1) : key;
+                  return (
+                    <BarRow
+                      key={key}
+                      label={
+                        <>
+                          <span className="truncate">{name}</span>
+                          {pid && <ProviderBadge id={pid} providers={providers} className="opacity-50 group-hover:opacity-100 transition-opacity !text-[8px] !px-1 !py-px" />}
+                        </>
+                      }
+                      value={count}
+                      max={Math.max(...topTools.map(x => x.count), 1)}
+                      color="bg-lens-accent/40"
+                    />
+                  );
+                })}
               </Panel>
             )}
           </div>
         )}
 
-        {/* Top projects — tokens column only when data exists */}
-        {topProjects.length > 0 && (
-          <Panel title="Top Projects by Activity">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-lens-border">
-                  <th className="text-left py-2 text-[10px] uppercase tracking-wider text-lens-text-dim font-normal">Project</th>
-                  <th className="text-right py-2 text-[10px] uppercase tracking-wider text-lens-text-dim font-normal">Messages</th>
-                  {hasTokensInProjects && <th className="text-right py-2 text-[10px] uppercase tracking-wider text-lens-text-dim font-normal">Tokens</th>}
-                  <th className="w-1/3 py-2 pl-4"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {topProjects.map(proj => (
-                  <tr key={proj.id} className="border-b border-lens-border/50 last:border-0">
-                    <td className="py-2 text-lens-text-body max-w-[200px]">
-                      <div className="flex items-center gap-2">
-                        <span className="truncate">{prettifyProjectName(proj.id)}</span>
-                        {proj.provider && <ProviderBadge id={proj.provider} providers={providers} />}
-                      </div>
-                    </td>
-                    <td className="py-2 text-right text-lens-text-sub tabular-nums">{proj.messageCount.toLocaleString()}</td>
-                    {hasTokensInProjects && <td className="py-2 text-right text-lens-text-sub tabular-nums">{fmt(proj.tokenCount)}</td>}
-                    <td className="py-2 pl-4">
-                      <div className="h-1.5 bg-lens-border rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-lens-accent/40 rounded-full"
-                          style={{ width: `${Math.round((proj.messageCount / maxProjectMsgs) * 100)}%` }}
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Panel>
+        {/* Collapsible detail section: Token Breakdown + Hook Health + Stop Reasons */}
+        {hasMoreData && (
+          <div>
+            <button
+              onClick={() => setShowMore(v => !v)}
+              className="flex items-center gap-1.5 text-xs text-lens-text-dim hover:text-lens-text-sub mb-4 transition-colors"
+            >
+              <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${showMore ? 'rotate-180' : ''}`} />
+              {showMore ? 'Hide details' : 'More stats'}
+            </button>
+            {showMore && (
+              <>
+                {/* Token Breakdown + Hook Health — single panel takes full width when the other has no data */}
+                {(hasTokens || hasHooks) && (
+                  <div className={`grid grid-cols-1 gap-4 mb-4 ${hasBothTokenHook ? 'md:grid-cols-2' : ''}`}>
+                    {hasTokens && (
+                      <Panel title="Token Breakdown">
+                        <BarRow label="Input" value={stats.tokens.input} max={maxToken} color="bg-violet-500/40" />
+                        <BarRow label="Output" value={stats.tokens.output} max={maxToken} color="bg-emerald-500/40" />
+                        <BarRow label="Cache Read" value={stats.tokens.cacheRead} max={maxToken} color="bg-sky-500/40" />
+                        <BarRow label="Cache Created" value={stats.tokens.cacheCreation} max={maxToken} color="bg-lens-border/80" />
+                      </Panel>
+                    )}
+                    {hasHooks && (
+                      <Panel title="Hook Health">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                              <span className="text-sm text-lens-text-sub">Successes</span>
+                            </div>
+                            <span className="text-lens-text tabular-nums font-medium">{stats.hooks.success.toLocaleString()}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full bg-rose-500" />
+                              <span className="text-sm text-lens-text-sub">Failures</span>
+                            </div>
+                            <span className="text-lens-text tabular-nums font-medium">{stats.hooks.failure.toLocaleString()}</span>
+                          </div>
+                          {stats.hooks.success + stats.hooks.failure > 0 && (
+                            <div className="flex items-center justify-between border-t border-lens-border pt-3">
+                              <span className="text-sm text-lens-text-sub">Success Rate</span>
+                              <span className="text-lens-text font-medium">
+                                {Math.round((stats.hooks.success / (stats.hooks.success + stats.hooks.failure)) * 100)}%
+                              </span>
+                            </div>
+                          )}
+                          {stats.hooks.avgDurationMs > 0 && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-lens-text-sub">Avg Duration</span>
+                              <span className="text-lens-text font-medium tabular-nums">{stats.hooks.avgDurationMs}ms</span>
+                            </div>
+                          )}
+                        </div>
+                      </Panel>
+                    )}
+                  </div>
+                )}
+                {/* Stop Reasons */}
+                {orderedStopReasons.length > 0 && (
+                  <div className="mb-4">
+                    <Panel title="Stop Reasons">
+                      {orderedStopReasons.map(([reason, count]) => (
+                        <BarRow key={reason} label={reason} value={count} max={maxStopReason} color="bg-lens-accent/40" />
+                      ))}
+                    </Panel>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         )}
       </div>
     </div>

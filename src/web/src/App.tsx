@@ -386,8 +386,8 @@ function App() {
         )}
         {sidebarCollapsed && <div className="flex-1" />}
 
-        {/* Active provider tag — sits directly above Settings */}
-        {activeProviderInfo && (
+        {/* Active provider tag — sits directly above Settings; hidden when inside a project */}
+        {activeProviderInfo && !activeProjectId && (
           <div className={`shrink-0 ${sidebarCollapsed ? 'p-1 flex justify-center' : 'px-2 py-2'}`}>
             {!sidebarCollapsed && providers.length > 1 && (
               <p className="text-[9px] text-lens-text-faint mb-1 px-0.5">Tip: click to switch provider quickly</p>

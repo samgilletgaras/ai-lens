@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
-const PERIOD_WEEKS = 26;
+const PERIOD_WEEKS = 52;
 
 export function ActivityHeatmap({ activity }: { activity: Record<string, number> }) {
   const [offset, setOffset] = useState(0);
@@ -70,7 +70,7 @@ export function ActivityHeatmap({ activity }: { activity: Record<string, number>
   });
 
   const periodLabel = offset === 0
-    ? 'last 6 months'
+    ? 'last 12 months'
     : `${start.toLocaleDateString([], { month: 'short', year: 'numeric' })} – ${anchor.toLocaleDateString([], { month: 'short', year: 'numeric' })}`;
 
   return (
@@ -85,7 +85,7 @@ export function ActivityHeatmap({ activity }: { activity: Record<string, number>
             <button
               onClick={() => setOffset(o => o + 1)}
               disabled={!canGoPrev}
-              title="Previous period"
+              title="Previous 12 months"
               className="p-0.5 rounded hover:bg-lens-border disabled:opacity-25 disabled:cursor-not-allowed text-lens-text-sub hover:text-lens-text transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -93,7 +93,7 @@ export function ActivityHeatmap({ activity }: { activity: Record<string, number>
             <button
               onClick={() => setOffset(o => o - 1)}
               disabled={!canGoNext}
-              title="Next period"
+              title="Next 12 months"
               className="p-0.5 rounded hover:bg-lens-border disabled:opacity-25 disabled:cursor-not-allowed text-lens-text-sub hover:text-lens-text transition-colors"
             >
               <ChevronRight className="w-4 h-4" />

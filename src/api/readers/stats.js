@@ -25,6 +25,7 @@ function mergeGlobalStats(parts) {
     hooks: { success: 0, failure: 0, avgDurationMs: 0 },
     topProjects: [], activity: {}, estimatedCostUsd: 0, estimatedCostByProvider: {},
   };
+  const topToolsMap = {};
   let hookDurTotal = 0, hookDurCount = 0;
   const addMap = (dst, src) => { for (const [k, v] of Object.entries(src ?? {})) dst[k] = (dst[k] || 0) + v; };
   for (const { providerId, stats: s } of parts) {
@@ -39,12 +40,14 @@ function mergeGlobalStats(parts) {
     acc.estimatedCostUsd += s.estimatedCostUsd;
     acc.estimatedCostByProvider[providerId] = Math.round((s.estimatedCostUsd || 0) * 100) / 100;
     for (const tp of s.topProjects ?? []) acc.topProjects.push({ ...tp, id: packId(providerId, tp.id), provider: providerId });
+    for (const { name, count } of s.topTools ?? []) { const key = `${providerId}/${name}`; topToolsMap[key] = (topToolsMap[key] || 0) + count; }
   }
   const tot = acc.tokens.input + acc.tokens.cacheRead + acc.tokens.cacheCreation;
   acc.tokens.cacheHitRate = tot > 0 ? Math.round((acc.tokens.cacheRead / tot) * 100) : 0;
   acc.hooks.avgDurationMs = hookDurCount > 0 ? Math.round(hookDurTotal / hookDurCount) : 0;
   acc.topProjects.sort((a, b) => b.messageCount - a.messageCount);
   acc.topProjects = acc.topProjects.slice(0, 5);
+  acc.topTools = Object.entries(topToolsMap).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([name, count]) => ({ name, count }));
   acc.estimatedCostUsd = Math.round(acc.estimatedCostUsd * 100) / 100;
   return acc;
 }
