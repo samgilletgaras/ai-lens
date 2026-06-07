@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Layers, ArrowLeft, Search, Zap } from 'lucide-react';
-import type { Skill, SkillDetail } from '../types';
+import type { Skill, SkillDetail, ProviderInfo } from '../types';
 import { apiUrl } from '../utils';
+import { ProviderBadge } from './ProviderBadge';
 
 const META_LABEL: Record<string, string> = {
   name: 'Name',
@@ -20,7 +21,7 @@ function formatDate(ts: number | null) {
   return new Date(ts).toLocaleDateString();
 }
 
-export function SkillsViewer({ demoMode }: { demoMode?: boolean }) {
+export function SkillsViewer({ demoMode, providers = [] }: { demoMode?: boolean; providers?: ProviderInfo[] }) {
   const [skills, setSkills] = useState<Skill[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +49,7 @@ export function SkillsViewer({ demoMode }: { demoMode?: boolean }) {
     setSkillDetail(null);
     if (!skill.hasSkillMd) return;
     setContentLoading(true);
-    fetch(apiUrl(`/api/skills?slug=${encodeURIComponent(skill.slug)}`, demoMode ?? false))
+    fetch(apiUrl(`/api/skills?slug=${encodeURIComponent(skill.slug)}${skill.provider ? `&from=${encodeURIComponent(skill.provider)}` : ''}`, demoMode ?? false))
       .then(res => res.json())
       .then(res => {
         setSkillDetail(res.data ?? null);
@@ -76,7 +77,10 @@ export function SkillsViewer({ demoMode }: { demoMode?: boolean }) {
             <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to Skills
           </button>
 
-          <h1 className="text-2xl font-semibold text-lens-text mb-1">{selectedSkill.name}</h1>
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <h1 className="text-2xl font-semibold text-lens-text">{selectedSkill.name}</h1>
+            {selectedSkill.provider && <ProviderBadge id={selectedSkill.provider} providers={providers} />}
+          </div>
           <div className="font-mono text-[11px] text-lens-text-faint mb-6">{selectedSkill.slug}</div>
 
           {contentLoading && <p className="text-lens-text-dim text-sm">Loading...</p>}
@@ -196,6 +200,7 @@ export function SkillsViewer({ demoMode }: { demoMode?: boolean }) {
                       <Zap className="w-2.5 h-2.5" />{skill.trigger}
                     </span>
                   )}
+                  {skill.provider && <ProviderBadge id={skill.provider} providers={providers} />}
                 </div>
                 <div className="font-mono text-[10px] text-lens-text-faint mb-2">{skill.slug}</div>
                 {skill.description ? (

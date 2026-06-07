@@ -158,10 +158,13 @@ Reads `~/.claude/projects/<proj>/memory/*.md` (per project). Parses frontmatter
 (`name`, `description`, `type`) plus indented `key: value` lines; `MEMORY.md` is the
 index. Grouped under the same project id as that project's sessions.
 
-### Plans — `readers/plans.js` (provider-agnostic)
+### Plans — `readers/claude/claude-plans.js`
 Reads `~/.claude/plans/*.md`, sorted by mtime desc. Title from frontmatter `name`
-or first `#` heading; snippet from first real content line. **Not** provider-scoped —
-the `?provider=` param is ignored for plans.
+or first `#` heading; snippet from first real content line. Registers into the
+`readers/plans.js` hub under the `claude` id, like every other Claude reader — so
+plans dispatch by provider and fan out under the `all` meta-provider (Claude is the
+only provider with `hasPlans` today). The hub itself (`readers/plans.js`) is
+provider-agnostic.
 
 ---
 

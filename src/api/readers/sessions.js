@@ -18,7 +18,7 @@ function resolve(provider) {
 // Route a packed project id (`<provider>:::<realId>`) to its source impl.
 function routed(project) {
   const { provider, id } = unpackId(project);
-  return { impl: provider ? registry.get(provider) : null, id };
+  return { impl: provider ? registry.get(provider) : null, id, provider };
 }
 
 export async function getProjects(provider) {
@@ -36,10 +36,10 @@ export async function getProjects(provider) {
 
 export async function getSessions(provider, project, page = 0, pageSize = 20) {
   if (provider === ALL_PROVIDER) {
-    const { impl, id } = routed(project);
+    const { impl, id, provider: src } = routed(project);
     if (!impl) return { data: [], total: 0 };
     const r = await impl.getSessions(id, page, pageSize);
-    return { ...r, data: r.data.map(s => ({ ...s, project })) };
+    return { ...r, data: r.data.map(s => ({ ...s, project, provider: src })) };
   }
   return resolve(provider).getSessions(project, page, pageSize);
 }

@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Activity } from 'lucide-react';
-import type { DiagnosticsStats } from '../types';
+import type { DiagnosticsStats, ProviderInfo } from '../types';
 import { prettifyProjectName, fmt, apiUrl } from '../utils';
 import { ActivityHeatmap } from './ActivityHeatmap';
+import { ProviderBadge } from './ProviderBadge';
+
+const usd = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -38,7 +41,7 @@ function BarRow({ label, value, max, color = 'bg-lens-accent/40' }: { label: str
   );
 }
 
-export function LogsViewer({ demoMode }: { demoMode?: boolean }) {
+export function LogsViewer({ demoMode, providers = [] }: { demoMode?: boolean; providers?: ProviderInfo[] }) {
   const [stats, setStats] = useState<DiagnosticsStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -95,6 +98,10 @@ export function LogsViewer({ demoMode }: { demoMode?: boolean }) {
   const hasHooks = stats.hooks.success + stats.hooks.failure > 0;
   const topTools = (stats as DiagnosticsStats & { topTools?: { name: string; count: number }[] }).topTools ?? [];
   const hasTokensInProjects = topProjects.some(p => p.tokenCount > 0);
+  // Per-provider cost split, surfaced only in All-Providers mode (>1 contributing provider).
+  const costByProvider = Object.entries(stats.estimatedCostByProvider ?? {}).sort((a, b) => b[1] - a[1]);
+  const showCostBreakdown = costByProvider.length > 1;
+  const hasZeroCostProvider = costByProvider.some(([, c]) => c <= 0);
 
   const stopReasonOrder = ['tool_use', 'end_turn', 'max_tokens', 'stop_sequence'];
   const orderedStopReasons = [
@@ -133,16 +140,30 @@ export function LogsViewer({ demoMode }: { demoMode?: boolean }) {
 
         {/* Cost estimate — only when non-zero */}
         {stats.estimatedCostUsd > 0 && (
-          <div className="bg-lens-surface border border-lens-border rounded-lg p-4 mb-6 flex items-center justify-between">
-            <div>
-              <div className="text-[10px] uppercase tracking-wider text-lens-text-dim mb-1">Estimated Cost</div>
-              <div className="text-3xl font-semibold text-lens-text tabular-nums">
-                ${stats.estimatedCostUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <div className="bg-lens-surface border border-lens-border rounded-lg p-4 mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-lens-text-dim mb-1">Estimated Cost{showCostBreakdown && ' — Total'}</div>
+                <div className="text-3xl font-semibold text-lens-text tabular-nums">${usd(stats.estimatedCostUsd)}</div>
+              </div>
+              <div className="text-right text-xs text-lens-text-faint max-w-xs">
+                Approximate, based on public model pricing for input/output tokens. Cache tokens not billed.
               </div>
             </div>
-            <div className="text-right text-xs text-lens-text-faint max-w-xs">
-              Approximate, based on public model pricing for input/output tokens. Cache tokens not billed.
-            </div>
+            {/* Per-provider split (All Providers view) */}
+            {showCostBreakdown && (
+              <div className="mt-4 pt-3 border-t border-lens-border space-y-2">
+                {costByProvider.map(([id, cost]) => (
+                  <div key={id} className="flex items-center justify-between text-sm">
+                    <ProviderBadge id={id} providers={providers} />
+                    <span className="text-lens-text-body tabular-nums">${usd(cost)}{cost <= 0 && <span className="text-lens-text-faint">*</span>}</span>
+                  </div>
+                ))}
+                {hasZeroCostProvider && (
+                  <p className="text-[10px] text-lens-text-faint pt-1">* provider exposes no public token pricing</p>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -240,7 +261,12 @@ export function LogsViewer({ demoMode }: { demoMode?: boolean }) {
               <tbody>
                 {topProjects.map(proj => (
                   <tr key={proj.id} className="border-b border-lens-border/50 last:border-0">
-                    <td className="py-2 text-lens-text-body truncate max-w-[200px]">{prettifyProjectName(proj.id)}</td>
+                    <td className="py-2 text-lens-text-body max-w-[200px]">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate">{prettifyProjectName(proj.id)}</span>
+                        {proj.provider && <ProviderBadge id={proj.provider} providers={providers} />}
+                      </div>
+                    </td>
                     <td className="py-2 text-right text-lens-text-sub tabular-nums">{proj.messageCount.toLocaleString()}</td>
                     {hasTokensInProjects && <td className="py-2 text-right text-lens-text-sub tabular-nums">{fmt(proj.tokenCount)}</td>}
                     <td className="py-2 pl-4">

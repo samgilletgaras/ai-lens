@@ -438,7 +438,7 @@ function App() {
         {currentView === 'settings' ? (
           <SettingsViewer demoMode={demoMode} providers={providers} provider={provider} onProviderChange={handleProviderChange} onToggle={handleDemoToggle} theme={theme} onThemeChange={handleThemeChange} />
         ) : SimpleView ? (
-          <SimpleView key={refreshKey} demoMode={demoMode} />
+          <SimpleView key={refreshKey} demoMode={demoMode} providers={providers} />
         ) : activeProjectId === null ? (
           <ProjectGrid projects={projects} providers={providers} onOpen={openProject} />
         ) : activeConv ? (
@@ -447,7 +447,7 @@ function App() {
             conv={activeConv}
             messages={activeMessages}
             loading={messagesLoading}
-            assistantLabel={activeProviderInfo?.name ?? 'Assistant'}
+            assistantLabel={providers.find(p => p.id === activeConv.provider)?.name ?? activeProviderInfo?.name ?? 'Assistant'}
           />
         ) : activeProjectId !== null && !activeConv ? (
           <ProjectDiagnostics key={activeProjectId} projectId={activeProjectId} demoMode={demoMode} />

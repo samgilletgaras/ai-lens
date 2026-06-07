@@ -66,6 +66,7 @@ export interface ConversationSummary {
   tokens?: { input: number; output: number; cacheRead: number; cacheCreation: number };
   turnCount?: number;
   metadata?: Record<string, string>;
+  provider?: string; // source provider id, set only under the "All Providers" view
 }
 
 export interface Conversation {
@@ -85,6 +86,7 @@ export interface Skill {
   trigger: string | null;
   totalCalls: number;
   lastUsed: number | null;
+  provider?: string; // source provider id, set only under the "All Providers" view
 }
 
 export interface SkillDetail {
@@ -112,6 +114,7 @@ export interface MCPServer {
   lastUsed: number | null;
   auth?: { authenticated: boolean; timestamp: number };
   source?: string;
+  provider?: string; // source provider id, set only under the "All Providers" view
 }
 
 export interface MCPTool {
@@ -131,6 +134,7 @@ export interface MemoryEntry {
   description: string | null;
   type: 'user' | 'feedback' | 'project' | 'reference' | null;
   snippet: string | null;
+  provider?: string; // source provider id, set only under the "All Providers" view
 }
 
 export interface MemoryEntryDetail extends MemoryEntry {
@@ -143,6 +147,7 @@ export interface Plan {
   title: string;
   snippet: string | null;
   mtime: number;
+  provider?: string; // source provider id, set only under the "All Providers" view
 }
 
 export interface PlanDetail extends Plan {
@@ -165,7 +170,8 @@ export interface DiagnosticsStats {
   stopReasons: Record<string, number>;
   models: Record<string, number>;
   hooks: { success: number; failure: number; avgDurationMs: number };
-  topProjects: { id: string; messageCount: number; tokenCount: number }[];
+  topProjects: { id: string; messageCount: number; tokenCount: number; provider?: string }[];
   activity: Record<string, number>;
   estimatedCostUsd: number;
+  estimatedCostByProvider?: Record<string, number>; // set only under the "All Providers" view
 }

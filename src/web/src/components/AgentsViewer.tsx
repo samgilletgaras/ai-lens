@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Bot, ArrowLeft, Search } from 'lucide-react';
-import type { Skill, SkillDetail } from '../types';
+import type { Skill, SkillDetail, ProviderInfo } from '../types';
 import { apiUrl } from '../utils';
+import { ProviderBadge } from './ProviderBadge';
 
-export function AgentsViewer({ demoMode }: { demoMode?: boolean }) {
+export function AgentsViewer({ demoMode, providers = [] }: { demoMode?: boolean; providers?: ProviderInfo[] }) {
   const [agents, setAgents] = useState<Skill[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +34,7 @@ export function AgentsViewer({ demoMode }: { demoMode?: boolean }) {
     setDetail(null);
     if (!agent.hasSkillMd) return;
     setDetailLoading(true);
-    fetch(apiUrl(`/api/agents?slug=${encodeURIComponent(agent.slug)}`, demoMode ?? false))
+    fetch(apiUrl(`/api/agents?slug=${encodeURIComponent(agent.slug)}${agent.provider ? `&from=${encodeURIComponent(agent.provider)}` : ''}`, demoMode ?? false))
       .then(res => res.json())
       .then(res => { setDetail(res.data ?? null); setDetailLoading(false); })
       .catch(() => setDetailLoading(false));
@@ -53,7 +54,10 @@ export function AgentsViewer({ demoMode }: { demoMode?: boolean }) {
           <button onClick={closeAgent} className="flex items-center text-lens-text-sub hover:text-lens-text text-sm mb-6 transition-colors">
             <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to Agents
           </button>
-          <h1 className="text-2xl font-semibold text-lens-text mb-1">{selected.name}</h1>
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <h1 className="text-2xl font-semibold text-lens-text">{selected.name}</h1>
+            {selected.provider && <ProviderBadge id={selected.provider} providers={providers} />}
+          </div>
           <div className="font-mono text-[11px] text-lens-text-faint mb-6">{selected.slug}</div>
 
           {detailLoading && <p className="text-lens-text-dim text-sm">Loading...</p>}
@@ -119,9 +123,10 @@ export function AgentsViewer({ demoMode }: { demoMode?: boolean }) {
                 onClick={() => openAgent(agent)}
                 className="bg-lens-surface border border-lens-border hover:border-lens-border-hi rounded-lg p-4 text-left transition-colors flex flex-col"
               >
-                <div className="flex items-center gap-2 mb-0.5">
+                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                   <Bot className="w-3.5 h-3.5 text-lens-text-dim shrink-0" />
                   <span className="font-medium text-lens-text">{agent.name}</span>
+                  {agent.provider && <ProviderBadge id={agent.provider} providers={providers} />}
                 </div>
                 <div className="font-mono text-[10px] text-lens-text-faint mb-2">{agent.slug}</div>
                 {agent.description ? (

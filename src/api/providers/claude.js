@@ -7,6 +7,7 @@ import '../readers/claude/claude-mcps.js';
 import '../readers/claude/claude-skills.js';
 import '../readers/claude/claude-agents.js';
 import '../readers/claude/claude-memory.js';
+import '../readers/claude/claude-plans.js';
 
 export const name = 'Claude';
 export const icon = 'Sparkles'; // lucide icon name (resolved by name on the frontend)

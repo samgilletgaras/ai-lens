@@ -23,7 +23,7 @@ function mergeGlobalStats(parts) {
     tokens: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0, cacheHitRate: 0 },
     stopReasons: {}, models: {},
     hooks: { success: 0, failure: 0, avgDurationMs: 0 },
-    topProjects: [], activity: {}, estimatedCostUsd: 0,
+    topProjects: [], activity: {}, estimatedCostUsd: 0, estimatedCostByProvider: {},
   };
   let hookDurTotal = 0, hookDurCount = 0;
   const addMap = (dst, src) => { for (const [k, v] of Object.entries(src ?? {})) dst[k] = (dst[k] || 0) + v; };
@@ -36,7 +36,8 @@ function mergeGlobalStats(parts) {
     acc.hooks.success += s.hooks.success; acc.hooks.failure += s.hooks.failure;
     if (s.hooks.avgDurationMs && s.hooks.success) { hookDurTotal += s.hooks.avgDurationMs * s.hooks.success; hookDurCount += s.hooks.success; }
     acc.estimatedCostUsd += s.estimatedCostUsd;
-    for (const tp of s.topProjects ?? []) acc.topProjects.push({ ...tp, id: packId(providerId, tp.id) });
+    acc.estimatedCostByProvider[providerId] = Math.round((s.estimatedCostUsd || 0) * 100) / 100;
+    for (const tp of s.topProjects ?? []) acc.topProjects.push({ ...tp, id: packId(providerId, tp.id), provider: providerId });
   }
   const tot = acc.tokens.input + acc.tokens.cacheRead + acc.tokens.cacheCreation;
   acc.tokens.cacheHitRate = tot > 0 ? Math.round((acc.tokens.cacheRead / tot) * 100) : 0;

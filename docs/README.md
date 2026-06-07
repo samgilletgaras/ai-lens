@@ -73,6 +73,18 @@ Node core only (`http`, `fs`, `readline`, `os`, `path`).
 **Provider dispatch:** data endpoints accept `?provider=<id>`; omitting it uses the
 first registered provider. `?provider=all` aggregates across every provider
 (project/memory ids are namespaced `<provider>:::<id>` so drill-downs route back).
+Under `all`, results also carry their **source `provider` id** so the frontend can
+badge provenance without name-checking: projects, skills, agents, MCPs, memory
+entries, plans, and the diagnostics `topProjects` rows each get a `provider` field,
+and `/api/stats` adds `estimatedCostByProvider` (`{ <id>: usd }`) alongside the
+summed `estimatedCostUsd`. The frontend resolves that id to a display name/badge
+via `/api/config`. Sessions also carry a `provider` id, but the UI doesn't badge
+each session row — you always reach sessions *through* a project, which is already
+namespaced per provider — so it's used only to resolve the assistant's display
+label in the message view. For **detail** fetches under `all`, the UI passes a
+`from=<provider>` hint (derived from the list item's `provider`) so the hub routes
+deterministically instead of guessing by a colliding slug/id; memory routes via its
+already-namespaced `project` id instead.
 
 #### The 12 endpoints
 

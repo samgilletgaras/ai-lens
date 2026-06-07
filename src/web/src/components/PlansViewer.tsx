@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ClipboardList, ArrowLeft, Search } from 'lucide-react';
-import type { Plan, PlanDetail } from '../types';
-import { formatRelative } from '../utils';
+import type { Plan, PlanDetail, ProviderInfo } from '../types';
+import { formatRelative, apiUrl } from '../utils';
+import { ProviderBadge } from './ProviderBadge';
 
-export function PlansViewer({ demoMode }: { demoMode?: boolean }) {
+export function PlansViewer({ demoMode, providers = [] }: { demoMode?: boolean; providers?: ProviderInfo[] }) {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -16,7 +17,7 @@ export function PlansViewer({ demoMode }: { demoMode?: boolean }) {
 
   useEffect(() => {
     let ignore = false;
-    fetch(demoMode ? '/api/plans?demo=true' : '/api/plans')
+    fetch(apiUrl('/api/plans', !!demoMode))
       .then(res => res.json())
       .then(res => {
         if (ignore) return;
@@ -36,7 +37,7 @@ export function PlansViewer({ demoMode }: { demoMode?: boolean }) {
     setSelected(plan);
     setDetail(null);
     setDetailLoading(true);
-    fetch(`/api/plans?file=${encodeURIComponent(plan.filename)}${demoMode ? '&demo=true' : ''}`)
+    fetch(apiUrl(`/api/plans?file=${encodeURIComponent(plan.filename)}${plan.provider ? `&from=${encodeURIComponent(plan.provider)}` : ''}`, !!demoMode))
       .then(res => res.json())
       .then(res => {
         setDetail((res.data as PlanDetail[])?.[0] ?? null);
@@ -59,7 +60,10 @@ export function PlansViewer({ demoMode }: { demoMode?: boolean }) {
             <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to Plans
           </button>
 
-          <h1 className="text-2xl font-semibold text-lens-text mb-1">{selected.title}</h1>
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <h1 className="text-2xl font-semibold text-lens-text">{selected.title}</h1>
+            {selected.provider && <ProviderBadge id={selected.provider} providers={providers} />}
+          </div>
           <div className="font-mono text-[11px] text-lens-text-faint mb-6">
             {selected.filename} · {formatRelative(selected.mtime)}
           </div>
@@ -136,7 +140,10 @@ export function PlansViewer({ demoMode }: { demoMode?: boolean }) {
                 onClick={() => openPlan(plan)}
                 className="bg-lens-surface border border-lens-border hover:border-lens-border-hi rounded-lg p-4 text-left transition-colors flex flex-col"
               >
-                <div className="font-medium text-lens-text mb-0.5">{plan.title}</div>
+                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                  <span className="font-medium text-lens-text">{plan.title}</span>
+                  {plan.provider && <ProviderBadge id={plan.provider} providers={providers} />}
+                </div>
                 <div className="font-mono text-[10px] text-lens-text-faint mb-2">{plan.filename}</div>
                 {plan.snippet ? (
                   <p className="text-lens-text-dim text-xs flex-1 line-clamp-2">{plan.snippet}</p>

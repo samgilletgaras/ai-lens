@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Plug, ArrowLeft, Search, CheckCircle } from 'lucide-react';
-import type { MCPServer, MCPServerDetail } from '../types';
+import type { MCPServer, MCPServerDetail, ProviderInfo } from '../types';
 import { apiUrl } from '../utils';
+import { ProviderBadge } from './ProviderBadge';
 
 function TypeBadge({ type }: { type: 'plugin' | 'cloud' }) {
   return type === 'cloud'
@@ -14,7 +15,7 @@ function formatDate(ts: number | null) {
   return new Date(ts).toLocaleDateString();
 }
 
-export function MCPsViewer({ demoMode }: { demoMode?: boolean }) {
+export function MCPsViewer({ demoMode, providers = [] }: { demoMode?: boolean; providers?: ProviderInfo[] }) {
   const [servers, setServers] = useState<MCPServer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +42,7 @@ export function MCPsViewer({ demoMode }: { demoMode?: boolean }) {
     setSelected(server);
     setDetail(null);
     setDetailLoading(true);
-    fetch(apiUrl(`/api/mcps?server=${encodeURIComponent(server.id)}`, demoMode ?? false))
+    fetch(apiUrl(`/api/mcps?server=${encodeURIComponent(server.id)}${server.provider ? `&from=${encodeURIComponent(server.provider)}` : ''}`, demoMode ?? false))
       .then(res => res.json())
       .then(res => {
         setDetail(res.data ?? null);
@@ -67,9 +68,10 @@ export function MCPsViewer({ demoMode }: { demoMode?: boolean }) {
             <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to MCPs
           </button>
 
-          <div className="flex items-center gap-3 mb-1">
+          <div className="flex items-center gap-3 mb-1 flex-wrap">
             <h1 className="text-2xl font-semibold text-lens-text">{selected.name}</h1>
             <TypeBadge type={selected.type} />
+            {selected.provider && <ProviderBadge id={selected.provider} providers={providers} />}
             {selected.auth?.authenticated && (
               <span className="flex items-center gap-1 text-[10px] text-emerald-400">
                 <CheckCircle className="w-3 h-3" /> Authenticated
@@ -196,9 +198,10 @@ export function MCPsViewer({ demoMode }: { demoMode?: boolean }) {
                 onClick={() => openServer(server)}
                 className="bg-lens-surface border border-lens-border hover:border-lens-border-hi rounded-lg p-4 text-left transition-colors flex flex-col"
               >
-                <div className="flex items-center gap-2 mb-0.5">
+                <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                   <span className="font-medium text-lens-text">{server.name}</span>
                   <TypeBadge type={server.type} />
+                  {server.provider && <ProviderBadge id={server.provider} providers={providers} />}
                 </div>
                 <div className="font-mono text-[10px] text-lens-text-faint mb-2">{server.id}</div>
                 <div className="mt-auto flex items-center justify-between text-xs text-lens-text-dim">

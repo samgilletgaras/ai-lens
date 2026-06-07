@@ -6,9 +6,12 @@ export function register(name, impl) { registry.set(name, impl); }
 
 function resolve(provider) { return registry.get(provider) ?? null; }
 
-export async function getMcps(provider, id = null) {
+// `from` routes detail straight to its source provider in all-mode (set by the UI
+// from the list item's provider); falls back to a linear search when absent.
+export async function getMcps(provider, id = null, from = null) {
   if (provider === ALL_PROVIDER) {
     if (id) {
+      if (from) return (await registry.get(from)?.getMcps(id)) ?? null;
       for (const [, impl] of registry) {
         const d = await impl.getMcps(id);
         if (d) return d;
@@ -16,8 +19,8 @@ export async function getMcps(provider, id = null) {
       return null;
     }
     const out = [];
-    for (const [, impl] of registry) {
-      try { out.push(...await impl.getMcps(null)); } catch { /* skip */ }
+    for (const [pid, impl] of registry) {
+      try { for (const m of await impl.getMcps(null)) out.push({ ...m, provider: pid }); } catch { /* skip */ }
     }
     return out;
   }

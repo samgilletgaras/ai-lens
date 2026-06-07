@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Brain, ArrowLeft, Search, ChevronRight } from 'lucide-react';
-import type { MemoryEntry, MemoryEntryDetail } from '../types';
+import type { MemoryEntry, MemoryEntryDetail, ProviderInfo } from '../types';
 import { apiUrl, prettifyProjectName } from '../utils';
+import { ProviderBadge } from './ProviderBadge';
 
 type MemoryType = 'user' | 'feedback' | 'project' | 'reference';
 
@@ -26,7 +27,7 @@ function TypeBadge({ type }: { type: string | null }) {
 
 const ALL_TYPES: MemoryType[] = ['user', 'feedback', 'project', 'reference'];
 
-function ProjectGroups({ entries, onOpen }: { entries: MemoryEntry[]; onOpen: (e: MemoryEntry) => void }) {
+function ProjectGroups({ entries, onOpen, providers }: { entries: MemoryEntry[]; onOpen: (e: MemoryEntry) => void; providers: ProviderInfo[] }) {
   const byProject = entries.reduce<Record<string, MemoryEntry[]>>((acc, e) => {
     (acc[e.project] ??= []).push(e);
     return acc;
@@ -51,6 +52,7 @@ function ProjectGroups({ entries, onOpen }: { entries: MemoryEntry[]; onOpen: (e
             >
               <ChevronRight className={`w-3.5 h-3.5 text-lens-text-faint transition-transform shrink-0 ${isOpen ? 'rotate-90' : ''}`} />
               <span className="text-sm font-medium text-lens-text-sub group-hover:text-lens-text transition-colors">{prettifyProjectName(project)}</span>
+              {items[0]?.provider && <ProviderBadge id={items[0].provider} providers={providers} />}
               <span className="text-[10px] text-lens-text-faint">{items.length}</span>
               <div className="flex-1 h-px bg-lens-border/60" />
             </button>
@@ -84,7 +86,7 @@ function ProjectGroups({ entries, onOpen }: { entries: MemoryEntry[]; onOpen: (e
   );
 }
 
-export function MemoryViewer({ demoMode }: { demoMode?: boolean }) {
+export function MemoryViewer({ demoMode, providers = [] }: { demoMode?: boolean; providers?: ProviderInfo[] }) {
   const [entries, setEntries] = useState<MemoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -144,6 +146,7 @@ export function MemoryViewer({ demoMode }: { demoMode?: boolean }) {
           <div className="flex items-center gap-3 mb-1 flex-wrap">
             <h1 className="text-2xl font-semibold text-lens-text">{selected.name}</h1>
             <TypeBadge type={selected.type} />
+            {selected.provider && <ProviderBadge id={selected.provider} providers={providers} />}
           </div>
           <div className="font-mono text-[11px] text-lens-text-faint mb-6">
             {prettifyProjectName(selected.project)} · {selected.filename}
@@ -260,7 +263,7 @@ export function MemoryViewer({ demoMode }: { demoMode?: boolean }) {
         {filtered.length === 0 ? (
           <p className="text-lens-text-dim text-sm">No entries match your search.</p>
         ) : (
-          <ProjectGroups entries={filtered} onOpen={openEntry} />
+          <ProjectGroups entries={filtered} onOpen={openEntry} providers={providers} />
         )}
       </div>
     </div>

@@ -14,7 +14,7 @@ import * as mcps from './readers/mcps.js';
 import * as skills from './readers/skills.js';
 import * as agents from './readers/agents.js';
 import * as memory from './readers/memory.js';
-import { getPlans } from './readers/plans.js';
+import * as plans from './readers/plans.js';
 
 // To add a new provider: create providers/x.js, import it here, add to PROVIDERS.
 const PROVIDERS = {
@@ -158,7 +158,7 @@ const server = http.createServer(async (req, res) => {
     const slug = q.get('slug', null);
     if (slug) {
       if (q.get('demo')) { const d = demo.DEMO_SKILL_DETAIL[slug]; d ? ok({ data: d }) : err('Demo skill not found'); return; }
-      try { ok({ data: skills.getSkillDetail(providerName, slug) }); } catch(e) { err(e.message); }
+      try { ok({ data: skills.getSkillDetail(providerName, slug, q.get('from', null)) }); } catch(e) { err(e.message); }
       return;
     }
     if (q.get('demo')) { ok({ data: demo.DEMO_SKILLS }); return; }
@@ -170,7 +170,7 @@ const server = http.createServer(async (req, res) => {
     const slug = q.get('slug', null);
     if (slug) {
       if (q.get('demo')) { ok({ data: null }); return; }
-      try { ok({ data: agents.getAgentDetail(providerName, slug) }); } catch(e) { err(e.message); }
+      try { ok({ data: agents.getAgentDetail(providerName, slug, q.get('from', null)) }); } catch(e) { err(e.message); }
       return;
     }
     if (q.get('demo')) { ok({ data: [] }); return; }
@@ -190,7 +190,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
     try {
-      const data = await mcps.getMcps(providerName, mcpServer || null);
+      const data = await mcps.getMcps(providerName, mcpServer || null, q.get('from', null));
       if (mcpServer && !data) { err('Server not found'); return; }
       ok({ data });
     } catch(e) { err(e.message); }
@@ -225,7 +225,7 @@ const server = http.createServer(async (req, res) => {
       }
       return;
     }
-    try { ok({ data: await getPlans(file) }); } catch(e) { err(e.message); }
+    try { ok({ data: await plans.getPlans(providerName, file, q.get('from', null)) }); } catch(e) { err(e.message); }
     return;
   }
 

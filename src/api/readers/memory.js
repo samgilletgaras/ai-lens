@@ -19,7 +19,7 @@ export async function getMemory(provider, project, filename) {
     for (const [id, impl] of registry) {
       try {
         const r = await impl.getMemory(null, null);
-        for (const e of r) out.push({ ...e, project: packId(id, e.project) });
+        for (const e of r) out.push({ ...e, project: packId(id, e.project), provider: id });
       } catch { /* skip */ }
     }
     return out;

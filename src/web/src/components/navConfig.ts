@@ -1,7 +1,7 @@
 import type { ComponentType } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { MessageSquare, Activity, Layers, Bot, Plug, Brain, ClipboardList } from 'lucide-react';
-import type { ProviderCapabilities } from '../types';
+import type { ProviderCapabilities, ProviderInfo } from '../types';
 import type { AppView } from '../routing';
 import { LogsViewer } from './LogsViewer';
 import { SkillsViewer } from './SkillsViewer';
@@ -25,7 +25,9 @@ export const NAV_ITEMS: NavItem[] = [
 ];
 
 // Views that are a single self-fetching component sharing the same props.
-export const SIMPLE_VIEWS: Partial<Record<AppView, ComponentType<{ demoMode: boolean }>>> = {
+// `providers` is consumed only by views that surface provider provenance (e.g. the
+// all-mode Diagnostics cost breakdown); others ignore it.
+export const SIMPLE_VIEWS: Partial<Record<AppView, ComponentType<{ demoMode: boolean; providers: ProviderInfo[] }>>> = {
   logs: LogsViewer, skills: SkillsViewer, agents: AgentsViewer,
   mcps: MCPsViewer, memory: MemoryViewer, plans: PlansViewer,
 };
