@@ -33,6 +33,7 @@
   /* Provider badge colors — keyed by provider slug (see .provider-badge-* below).
      Add a token + class here when adding a provider; can be overridden per theme. */
   --color-provider-claude:          #d97757;   /* Claude Code orange (clay) */
+  --color-provider-cursor:          #a78bfa;   /* violet-400 */
   --color-provider-ghcopilotvscode: #38bdf8;   /* sky-400 */
   --color-provider-all:             var(--color-lens-accent);   /* the "All Providers" meta-provider */
 }
@@ -111,6 +112,9 @@
 }
 .provider-badge-claude {
   @apply bg-provider-claude/15 text-provider-claude border-provider-claude/25;
+}
+.provider-badge-cursor {
+  @apply bg-provider-cursor/15 text-provider-cursor border-provider-cursor/25;
 }
 .provider-badge-ghcopilotvscode {
   @apply bg-provider-ghcopilotvscode/15 text-provider-ghcopilotvscode border-provider-ghcopilotvscode/25;

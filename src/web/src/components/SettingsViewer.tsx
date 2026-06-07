@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Settings } from 'lucide-react';
 import type { Provider, ProviderInfo } from '../types';
-import { apiUrl, iconFor } from '../utils';
+import { apiUrl, iconFor, slugify } from '../utils';
 
 const THEMES: { id: 'default' | 'tycho' | 'parchment'; name: string; colors: string[] }[] = [
   { id: 'default',   name: 'Carbon',    colors: ['#1e1e1e', '#3f3f46', '#71717a', '#f59e0b'] },
@@ -70,13 +70,20 @@ export function SettingsViewer({ demoMode, providers, provider, onProviderChange
               {providers.map(p => {
                 const disabled = demoMode || !p.available;
                 const Icon = iconFor(p.icon);
+                const isActive = provider === p.id;
+                const colorVar = `var(--color-provider-${slugify(p.id)}, var(--color-lens-accent))`;
                 return (
                   <button
                     key={p.id}
                     onClick={() => onProviderChange(p.id)}
                     disabled={disabled}
                     title={demoMode ? 'Disable demo mode to switch providers' : disabled ? `No ${p.name} data found` : undefined}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${provider === p.id ? 'border-lens-accent bg-lens-accent/10 text-lens-accent' : 'border-lens-border text-lens-text-sub hover:border-lens-border-hi'}`}
+                    style={isActive ? {
+                      color: colorVar,
+                      borderColor: colorVar,
+                      backgroundColor: `color-mix(in srgb, ${colorVar} 15%, transparent)`,
+                    } : {}}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${isActive ? '' : 'border-lens-border text-lens-text-sub hover:border-lens-border-hi'}`}
                   >
                     <Icon className="w-3.5 h-3.5 shrink-0" />
                     {p.name}
