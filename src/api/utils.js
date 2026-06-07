@@ -10,6 +10,35 @@ export const PLANS_DIR = path.join(CLAUDE_DIR, 'plans');
 export const MCP_PLUGINS_DIR = path.join(CLAUDE_DIR, 'plugins/marketplaces/claude-plugins-official/external_plugins');
 export const CACHE_TTL = 60_000;
 
+// Upper bound on how many log entries a logs reader keeps in memory. The logs
+// view only ever displays the most-recent few hundred (the frontend caps at
+// 500), so there is no reason to materialise every line of every JSONL on a
+// large `~/.claude`. See `makeBoundedLogCollector`.
+export const LOGS_CAP = 2000;
+
+// Bounded, timestamp-sorted collector for the logs readers. Push entries
+// (`{ project, session, lineNumber, raw }`) freely while streaming files; the
+// collector keeps only the most-recent `cap` by `raw.timestamp`, truncating
+// once it grows past 2×cap so peak memory stays O(cap) instead of O(all lines).
+// `finish()` returns `{ data, total }` where `total` is the true count scanned.
+export function makeBoundedLogCollector(cap = LOGS_CAP) {
+  const ts = (e) => { const t = e.raw?.timestamp; return t ? (new Date(t).getTime() || 0) : 0; };
+  let items = [];
+  let total = 0;
+  return {
+    push(entry) {
+      items.push(entry);
+      total++;
+      if (items.length >= cap * 2) { items.sort((a, b) => ts(b) - ts(a)); items.length = cap; }
+    },
+    finish() {
+      items.sort((a, b) => ts(b) - ts(a));
+      if (items.length > cap) items.length = cap;
+      return { data: items, total };
+    },
+  };
+}
+
 // Reserved meta-provider id: aggregates data across every registered provider.
 // Not a real registered provider — synthesized in /api/config and fanned out in
 // the registry hubs. Project/memory ids are "packed" with their source provider

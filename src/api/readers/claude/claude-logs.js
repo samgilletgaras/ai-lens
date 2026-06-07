@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
-import { PROJECTS_DIR, CACHE_TTL, isTmp } from '../../utils.js';
+import { PROJECTS_DIR, CACHE_TTL, isTmp, makeBoundedLogCollector } from '../../utils.js';
 import { register } from '../logs.js';
 
 let _cache = null, _cacheTs = 0;
@@ -10,10 +10,10 @@ async function getLogs(page = 0, pageSize = 10) {
   if (!fs.existsSync(PROJECTS_DIR)) return { data: [], total: 0 };
   const now = Date.now();
   if (_cache && now - _cacheTs < CACHE_TTL) {
-    return { data: _cache.slice(page * pageSize, (page + 1) * pageSize), total: _cache.length };
+    return { data: _cache.data.slice(page * pageSize, (page + 1) * pageSize), total: _cache.total };
   }
 
-  const logs = [];
+  const collector = makeBoundedLogCollector();
   for (const proj of fs.readdirSync(PROJECTS_DIR)) {
     if (isTmp(proj)) continue;
     const pPath = path.join(PROJECTS_DIR, proj);
@@ -30,21 +30,15 @@ async function getLogs(page = 0, pageSize = 10) {
       for await (const line of rl) {
         lineNumber++;
         if (!line.trim()) continue;
-        try { logs.push({ project: proj, session: sessionId, lineNumber, raw: JSON.parse(line) }); }
+        try { collector.push({ project: proj, session: sessionId, lineNumber, raw: JSON.parse(line) }); }
         catch(e) {}
       }
     }
   }
 
-  logs.sort((a, b) => {
-    const ta = typeof a.raw.timestamp === 'string' ? new Date(a.raw.timestamp).getTime() : 0;
-    const tb = typeof b.raw.timestamp === 'string' ? new Date(b.raw.timestamp).getTime() : 0;
-    return tb - ta;
-  });
-
-  _cache = logs;
+  _cache = collector.finish();
   _cacheTs = Date.now();
-  return { data: logs.slice(page * pageSize, (page + 1) * pageSize), total: logs.length };
+  return { data: _cache.data.slice(page * pageSize, (page + 1) * pageSize), total: _cache.total };
 }
 
 register('claude', { getLogs });

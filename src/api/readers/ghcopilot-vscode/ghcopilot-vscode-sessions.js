@@ -42,7 +42,22 @@ function decodeWorkspaceUri(uri) {
   try { return new URL(uri).pathname; } catch { return null; }
 }
 
+let _scanCache = null, _scanCacheTime = 0;
+
+// Cached wrapper around the workspace walk. The scan touches every VS Code
+// variant's workspaceStorage and reads a workspace.json + transcript dir listing
+// per workspace — too expensive to repeat on every getSessions/getMessages/logs
+// /stats call, all of which only need the resulting map. Cached for CACHE_TTL;
+// the returned map is treated as read-only by every caller.
 export function scanWorkspaces() {
+  const now = Date.now();
+  if (_scanCache && now - _scanCacheTime < CACHE_TTL) return _scanCache;
+  _scanCache = scanWorkspacesUncached();
+  _scanCacheTime = now;
+  return _scanCache;
+}
+
+function scanWorkspacesUncached() {
   const result = new Map();
   for (const wsDir of getCandidateDirs()) {
     let hashes;
