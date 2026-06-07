@@ -13,12 +13,10 @@ It started by reading the JSONL session files from `~/.claude/projects/` and sho
 ## What's inside
 
 - **History** — browse all your projects and sessions, with a full message timeline
-- **Logs** — raw JSONL entries across all projects, for debugging
-- **Skills** — installed skills (e.g. `~/.claude/skills/`)
-- **Agents** — subagent / custom-agent definitions
+- **Skills** — installed skills and custom agents
 - **MCPs** — MCP servers with per-server tool-call history
-- **Memory** — `CLAUDE.md` and memory files
-- **Plans** — plan markdown files from `~/.claude/plans/`
+- **Memory** — memory and config files (rules, instructions, workspace context)
+- **Plans** — plan files
 - **Project diagnostics** — token totals, cost estimate, top tools, and a 26-week activity heatmap
 
 Each view shows only what the active provider supports, and a small icon + badge in the sidebar marks which provider you're looking at.
@@ -38,7 +36,7 @@ Switch providers in **Settings**, or stay on **All Providers** (the default) to 
 ## Requirements
 
 - Node.js 18+
-- At least one supported assistant used once: Claude Code (so `~/.claude/projects/` exists) and/or GitHub Copilot in VS Code
+- At least one supported provider installed on your machine
 
 > No data? The app falls back to a built-in **Demo mode** with realistic sample data so you can try it out.
 
@@ -62,7 +60,7 @@ npm run dev:web   # frontend only
 ## A few things to know
 
 - **Local only.** No auth on the backend. Don't expose either port to a network.
-- **Read-only.** Nothing in `~/.claude/` is ever modified.
+- **Read-only.** Nothing on disk is ever modified.
 - **No tests yet.** `npm test` will error out.
 - Folders with `tmp` in the name are skipped in all scans.
 
