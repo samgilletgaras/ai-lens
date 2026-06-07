@@ -36,23 +36,23 @@ function MarkdownBlock({ text }: { text: string }) {
   const isLong = text.length > 400 || text.split('\n').length > 10;
 
   return (
-    <div className="relative group bg-lens-border/20 border border-lens-border/60 rounded-xl p-4 md:p-6">
-      <div className={`prose max-w-none prose-pre:bg-lens-deep prose-pre:border prose-pre:border-lens-border prose-code:text-lens-accent text-lens-text-body ${!expanded && isLong ? 'line-clamp-6 relative' : ''}`}>
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
-        {!expanded && isLong && (
-          <div className="absolute bottom-0 left-0 w-full h-12 bg-gradient-to-t from-lens-bg to-transparent pointer-events-none" />
-        )}
-      </div>
+    <div
+      className={`relative group bg-lens-border/20 border border-lens-border/60 rounded-xl p-4 md:p-6 ${isLong ? 'cursor-pointer' : ''}`}
+      onClick={() => isLong && setExpanded(v => !v)}
+    >
       <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
         <CopyButton text={text} />
-        {isLong && (
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="px-2 py-0.5 bg-lens-border/80 hover:bg-lens-hover text-lens-text-sub hover:text-lens-text rounded text-[10px] font-semibold tracking-wider transition-colors"
-          >
-            {expanded ? 'COLLAPSE' : 'EXPAND'}
-          </button>
-        )}
+      </div>
+      <div
+        className="prose max-w-none prose-pre:bg-lens-deep prose-pre:border prose-pre:border-lens-border prose-code:text-lens-accent text-lens-text-body"
+        style={!expanded && isLong ? {
+          maxHeight: '9rem',
+          overflow: 'hidden',
+          maskImage: 'linear-gradient(to bottom, black 30%, transparent 85%)',
+          WebkitMaskImage: 'linear-gradient(to bottom, black 30%, transparent 85%)',
+        } : undefined}
+      >
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
       </div>
     </div>
   );
