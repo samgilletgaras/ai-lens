@@ -26,13 +26,13 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
-function BarRow({ label, value, max, color = 'bg-lens-accent/40' }: { label: string; value: number; max: number; color?: string }) {
+function BarRow({ label, value, max, color = 'bg-lens-accent/40' }: { label: React.ReactNode; value: number; max: number; color?: string }) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0;
   return (
     <div className="mb-2 last:mb-0">
-      <div className="flex justify-between text-xs text-lens-text-sub mb-1">
-        <span>{label}</span>
-        <span className="tabular-nums">{value.toLocaleString()} <span className="text-lens-text-faint">({pct}%)</span></span>
+      <div className="flex justify-between items-center text-xs text-lens-text-sub mb-1">
+        <div className="flex items-center gap-1.5 min-w-0 mr-2">{label}</div>
+        <span className="tabular-nums shrink-0">{value.toLocaleString()} <span className="text-lens-text-faint">({pct}%)</span></span>
       </div>
       <div className="h-1.5 bg-lens-border rounded-full overflow-hidden">
         <div className={`h-full ${color} rounded-full`} style={{ width: `${pct}%` }} />
@@ -41,7 +41,7 @@ function BarRow({ label, value, max, color = 'bg-lens-accent/40' }: { label: str
   );
 }
 
-export function LogsViewer({ demoMode, providers = [] }: { demoMode?: boolean; providers?: ProviderInfo[] }) {
+export function LogsViewer({ demoMode, providers = [], provider }: { demoMode?: boolean; providers?: ProviderInfo[]; provider?: string | null }) {
   const [stats, setStats] = useState<DiagnosticsStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -91,6 +91,7 @@ export function LogsViewer({ demoMode, providers = [] }: { demoMode?: boolean; p
   const sortedStopReasons = Object.entries(stopReasons).sort((a, b) => b[1] - a[1]);
   const maxStopReason = Math.max(...sortedStopReasons.map(([, v]) => v), 1);
   const sortedModels = Object.entries(stats.models).sort((a, b) => b[1] - a[1]);
+  const isAllProviders = !provider || provider === 'all';
   const maxModel = Math.max(...sortedModels.map(([, v]) => v), 1);
   const maxToken = Math.max(stats.tokens.input, stats.tokens.output, stats.tokens.cacheRead, stats.tokens.cacheCreation, 1);
   const topProjects = stats.topProjects ?? [];
@@ -190,9 +191,25 @@ export function LogsViewer({ demoMode, providers = [] }: { demoMode?: boolean; p
             )}
             {sortedModels.length > 0 && (
               <Panel title="Models Used">
-                {sortedModels.map(([model, count]) => (
-                  <BarRow key={model} label={model} value={count} max={maxModel} color="bg-sky-500/40" />
-                ))}
+                {sortedModels.map(([model, count]) => {
+                  const slash = isAllProviders ? model.indexOf('/') : -1;
+                  const pid = slash !== -1 ? model.slice(0, slash) : null;
+                  const name = slash !== -1 ? model.slice(slash + 1) : model;
+                  const badge = pid ? (providers.find(p => p.id === pid)?.name ?? pid) : null;
+                  return (
+                    <BarRow
+                      key={model}
+                      label={
+                        <>
+                          <span className="truncate">{name}</span>
+                          {badge && <span className="shrink-0 px-1 py-px text-[9px] rounded border border-lens-border text-lens-text-dim font-mono">{badge}</span>}
+                        </>
+                      }
+                      value={count}
+                      max={maxModel}
+                    />
+                  );
+                })}
               </Panel>
             )}
           </div>

@@ -32,7 +32,8 @@ function mergeGlobalStats(parts) {
     acc.totals.sessions += s.totals.sessions; acc.totals.messages += s.totals.messages; acc.totals.toolCalls += s.totals.toolCalls;
     acc.tokens.input += s.tokens.input; acc.tokens.output += s.tokens.output;
     acc.tokens.cacheRead += s.tokens.cacheRead; acc.tokens.cacheCreation += s.tokens.cacheCreation;
-    addMap(acc.stopReasons, s.stopReasons); addMap(acc.models, s.models); addMap(acc.activity, s.activity);
+    addMap(acc.stopReasons, s.stopReasons); addMap(acc.activity, s.activity);
+    for (const [k, v] of Object.entries(s.models ?? {})) { const key = `${providerId}/${k}`; acc.models[key] = (acc.models[key] || 0) + v; }
     acc.hooks.success += s.hooks.success; acc.hooks.failure += s.hooks.failure;
     if (s.hooks.avgDurationMs && s.hooks.success) { hookDurTotal += s.hooks.avgDurationMs * s.hooks.success; hookDurCount += s.hooks.success; }
     acc.estimatedCostUsd += s.estimatedCostUsd;

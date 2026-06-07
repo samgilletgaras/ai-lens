@@ -102,7 +102,7 @@ async function projectStats(project) {
         else if (p.type === 'assistant') {
           messages++;
           const msg = p.message; if (!msg) continue;
-          if (msg.model) models[msg.model] = (models[msg.model] || 0) + 1;
+          if (msg.model) { const k = 'claude/' + msg.model; models[k] = (models[k] || 0) + 1; }
           const u = msg.usage;
           if (u) {
             const [inp, out, cr, cc] = [u.input_tokens || 0, u.output_tokens || 0, u.cache_read_input_tokens || 0, u.cache_creation_input_tokens || 0];

@@ -128,7 +128,7 @@ function chatSessionPathFor(transcriptPath, sessionId) {
 // kind:2 array-appends to ["requests"], and kind:1 path patches we ignore. We
 // only need each request's prompt text + timestamp, so we accumulate the base's
 // requests then every appended batch, in order.
-async function readChatRequests(transcriptPath, sessionId) {
+export async function readChatRequests(transcriptPath, sessionId) {
   const chatPath = chatSessionPathFor(transcriptPath, sessionId);
   if (!fs.existsSync(chatPath)) return null;
   const requests = [];
@@ -141,6 +141,7 @@ async function readChatRequests(transcriptPath, sessionId) {
   return requests.map(r => ({
     text: typeof r?.message?.text === 'string' ? r.message.text : '',
     timestamp: typeof r?.timestamp === 'number' ? r.timestamp : 0,
+    modelId: typeof r?.modelId === 'string' ? r.modelId : null,
   }));
 }
 
@@ -169,6 +170,12 @@ async function summariseFile(filePath, sessionId, project) {
     turnCount = reqs.length;
     const first = reqs.find(r => r.text.trim());
     if (first) preview = first.text.slice(0, 150);
+    const modelIds = reqs.map(r => r.modelId && (r.modelId.startsWith('copilot/') ? r.modelId.slice(8) : r.modelId)).filter(Boolean);
+    if (modelIds.length) {
+      const counts = {};
+      for (const m of modelIds) counts[m] = (counts[m] ?? 0) + 1;
+      metadata.model = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+    }
   }
   return { id: sessionId, project, firstMessageTs: firstTs ?? 0, lastUpdated: lastTs ?? firstTs ?? 0, preview, turnCount, metadata };
 }

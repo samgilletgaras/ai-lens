@@ -138,7 +138,7 @@ export function ProjectDiagnostics({ projectId, demoMode }: { projectId: string;
               {Object.entries(stats.models)
                 .sort((a, b) => b[1] - a[1])
                 .map(([model, count]) => (
-                  <BarRow key={model} label={model} value={count} max={maxModel} color="bg-sky-500/40" />
+                  <BarRow key={model} label={model} value={count} max={maxModel} />
                 ))
               }
             </Panel>

@@ -438,7 +438,7 @@ function App() {
         {currentView === 'settings' ? (
           <SettingsViewer demoMode={demoMode} providers={providers} provider={provider} onProviderChange={handleProviderChange} onToggle={handleDemoToggle} theme={theme} onThemeChange={handleThemeChange} />
         ) : SimpleView ? (
-          <SimpleView key={refreshKey} demoMode={demoMode} providers={providers} />
+          <SimpleView key={refreshKey} demoMode={demoMode} providers={providers} provider={provider} />
         ) : activeProjectId === null ? (
           <ProjectGrid projects={projects} providers={providers} onOpen={openProject} />
         ) : activeConv ? (
