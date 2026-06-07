@@ -6,6 +6,7 @@ import type { Skill, SkillDetail, ProviderInfo } from '../types';
 import { apiUrl } from '../utils';
 import { ProviderBadge } from './ProviderBadge';
 import { ProviderFilterBar } from './ProviderFilterBar';
+import { LoadingSpinner } from './LoadingSpinner';
 
 const META_LABEL: Record<string, string> = {
   name: 'Name',
@@ -88,7 +89,7 @@ export function SkillsViewer({ demoMode, providers = [], provider, showSourcePat
           </div>
           <div className="font-mono text-[11px] text-lens-text-faint mb-6">{selectedSkill.slug}</div>
 
-          {contentLoading && <p className="text-lens-text-dim text-sm">Loading...</p>}
+          {contentLoading && <div className="py-4 text-lens-text-dim text-sm"><LoadingSpinner label="Loading..." size="sm" /></div>}
 
           {!contentLoading && (
             <div className="bg-lens-surface border border-lens-border rounded-lg p-4 mb-6 space-y-2">
@@ -135,7 +136,7 @@ export function SkillsViewer({ demoMode, providers = [], provider, showSourcePat
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center text-lens-text-dim">
-        <p>Loading skills...</p>
+        <LoadingSpinner label="Loading skills..." />
       </div>
     );
   }

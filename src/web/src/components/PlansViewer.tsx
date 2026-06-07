@@ -6,6 +6,7 @@ import type { Plan, PlanDetail, ProviderInfo } from '../types';
 import { formatRelative, apiUrl } from '../utils';
 import { ProviderBadge } from './ProviderBadge';
 import { ProviderFilterBar } from './ProviderFilterBar';
+import { LoadingSpinner } from './LoadingSpinner';
 
 type PlanSort = 'recent' | 'az';
 
@@ -78,7 +79,7 @@ export function PlansViewer({ demoMode, providers = [], provider, showSourcePath
             </div>
           )}
 
-          {detailLoading && <p className="text-lens-text-dim text-sm">Loading…</p>}
+          {detailLoading && <div className="py-4 text-lens-text-dim text-sm"><LoadingSpinner label="Loading…" size="sm" /></div>}
 
           {!detailLoading && detail?.body && (
             <div className="prose max-w-none prose-pre:bg-lens-deep prose-pre:border prose-pre:border-lens-border prose-code:text-lens-accent text-lens-text-body">
@@ -91,7 +92,7 @@ export function PlansViewer({ demoMode, providers = [], provider, showSourcePath
   }
 
   if (loading) {
-    return <div className="flex-1 flex items-center justify-center text-lens-text-dim"><p>Loading plans…</p></div>;
+    return <div className="flex-1 flex items-center justify-center text-lens-text-dim"><LoadingSpinner label="Loading plans…" /></div>;
   }
 
   if (error) {

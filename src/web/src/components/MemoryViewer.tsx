@@ -6,6 +6,7 @@ import type { MemoryEntry, MemoryEntryDetail, ProviderInfo } from '../types';
 import { apiUrl, prettifyProjectName } from '../utils';
 import { ProviderBadge } from './ProviderBadge';
 import { ProviderFilterBar } from './ProviderFilterBar';
+import { LoadingSpinner } from './LoadingSpinner';
 
 type MemoryType = 'user' | 'feedback' | 'project' | 'reference';
 
@@ -162,7 +163,7 @@ export function MemoryViewer({ demoMode, providers = [], provider, showSourcePat
             </div>
           )}
 
-          {detailLoading && <p className="text-lens-text-dim text-sm">Loading…</p>}
+          {detailLoading && <div className="py-4 text-lens-text-dim text-sm"><LoadingSpinner label="Loading…" size="sm" /></div>}
 
           {!detailLoading && (
             <div className="bg-lens-surface border border-lens-border rounded-lg p-4 mb-6 space-y-2">
@@ -188,7 +189,7 @@ export function MemoryViewer({ demoMode, providers = [], provider, showSourcePat
   }
 
   if (loading) {
-    return <div className="flex-1 flex items-center justify-center text-lens-text-dim"><p>Loading memory…</p></div>;
+    return <div className="flex-1 flex items-center justify-center text-lens-text-dim"><LoadingSpinner label="Loading memory…" /></div>;
   }
 
   if (error) {

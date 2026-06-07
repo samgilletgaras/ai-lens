@@ -4,6 +4,7 @@ import type { ConversationSummary, Message } from '../types';
 import { fmt } from '../utils';
 import { MessageBubble } from './MessageBubble';
 import { extractMessageText, getSessionDuration, exportSession } from '../session';
+import { LoadingSpinner } from './LoadingSpinner';
 
 export function SessionView({ conv, messages, loading, assistantLabel, showSourcePaths = true }: {
   conv: ConversationSummary;
@@ -131,7 +132,7 @@ export function SessionView({ conv, messages, loading, assistantLabel, showSourc
       <div ref={scrollRef} className="flex-1 overflow-y-auto w-full relative">
         {loading && (
           <div className="flex items-center justify-center h-32 text-lens-text-dim text-sm">
-            Loading messages…
+            <LoadingSpinner label="Loading messages…" />
           </div>
         )}
         <div className="p-8 pb-32 max-w-7xl mx-auto">

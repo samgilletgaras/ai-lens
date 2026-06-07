@@ -4,6 +4,7 @@ import type { MCPServer, MCPServerDetail, ProviderInfo } from '../types';
 import { apiUrl } from '../utils';
 import { ProviderBadge } from './ProviderBadge';
 import { ProviderFilterBar } from './ProviderFilterBar';
+import { LoadingSpinner } from './LoadingSpinner';
 
 function TypeBadge({ type }: { type: 'plugin' | 'cloud' }) {
   return type === 'cloud'
@@ -85,7 +86,7 @@ export function MCPsViewer({ demoMode, providers = [], provider, showSourcePaths
           </div>
           <div className="font-mono text-[11px] text-lens-text-faint mb-6">{selected.id}</div>
 
-          {detailLoading && <p className="text-lens-text-dim text-sm">Loading...</p>}
+          {detailLoading && <div className="py-4 text-lens-text-dim text-sm"><LoadingSpinner label="Loading..." size="sm" /></div>}
 
           {!detailLoading && (
             <>
@@ -143,7 +144,7 @@ export function MCPsViewer({ demoMode, providers = [], provider, showSourcePaths
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center text-lens-text-dim">
-        <p>Loading MCPs...</p>
+        <LoadingSpinner label="Loading MCPs..." />
       </div>
     );
   }

@@ -11,6 +11,7 @@ import { prettifyProjectName, formatRelative, fmt, apiUrl, slugify, iconFor } fr
 import { getSessionDuration } from './session';
 import { SESSION_PAGE_SIZE, NO_CAPABILITIES, parseHash, buildHash } from './routing';
 import type { AppView } from './routing';
+import { LoadingSpinner } from './components/LoadingSpinner';
 
 function App() {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
@@ -334,7 +335,7 @@ function App() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto">
-                  {sessionsLoading && <div className="p-4 text-lens-text-dim text-sm">Loading sessions...</div>}
+                  {sessionsLoading && <div className="p-4 text-lens-text-dim text-sm flex justify-center"><LoadingSpinner label="Loading sessions..." size="sm" /></div>}
                   {!sessionsLoading && sortedSessions.map(conv => {
                     const isActive = activeSessionId === conv.id;
                     let firstText = conv.preview || 'New Session';

@@ -6,6 +6,7 @@ import type { Skill, SkillDetail, ProviderInfo } from '../types';
 import { apiUrl } from '../utils';
 import { ProviderBadge } from './ProviderBadge';
 import { ProviderFilterBar } from './ProviderFilterBar';
+import { LoadingSpinner } from './LoadingSpinner';
 
 type AgentSort = 'recent' | 'az';
 
@@ -65,7 +66,7 @@ export function AgentsViewer({ demoMode, providers = [], provider, showSourcePat
           </div>
           <div className="font-mono text-[11px] text-lens-text-faint mb-6">{selected.slug}</div>
 
-          {detailLoading && <p className="text-lens-text-dim text-sm">Loading...</p>}
+          {detailLoading && <div className="py-4 text-lens-text-dim text-sm"><LoadingSpinner label="Loading..." size="sm" /></div>}
 
           {!detailLoading && Object.keys(meta).length > 0 && (
             <div className="bg-lens-surface border border-lens-border rounded-lg p-4 mb-6 space-y-2">
@@ -94,7 +95,7 @@ export function AgentsViewer({ demoMode, providers = [], provider, showSourcePat
     );
   }
 
-  if (loading) return <div className="flex-1 flex items-center justify-center text-lens-text-dim"><p>Loading agents...</p></div>;
+  if (loading) return <div className="flex-1 flex items-center justify-center text-lens-text-dim"><LoadingSpinner label="Loading agents..." /></div>;
   if (error) return <div className="flex-1 flex items-center justify-center text-rose-400 text-sm"><p>{error}</p></div>;
   if (agents.length === 0) return <div className="flex-1 flex items-center justify-center text-lens-text-dim"><p>No agents found</p></div>;
 

@@ -4,6 +4,7 @@ import type { DiagnosticsStats, ProviderInfo } from '../types';
 import { prettifyProjectName, fmt, apiUrl } from '../utils';
 import { ActivityHeatmap } from './ActivityHeatmap';
 import { ProviderBadge } from './ProviderBadge';
+import { LoadingSpinner } from './LoadingSpinner';
 
 const usd = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -41,7 +42,7 @@ function BarRow({ label, value, max, color = 'bg-lens-accent/40' }: { label: Rea
   );
 }
 
-export function LogsViewer({ demoMode, providers = [], provider }: { demoMode?: boolean; providers?: ProviderInfo[]; provider?: string | null }) {
+export function GlobalDiagnostics({ demoMode, providers = [], provider }: { demoMode?: boolean; providers?: ProviderInfo[]; provider?: string | null }) {
   const [stats, setStats] = useState<DiagnosticsStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +75,7 @@ export function LogsViewer({ demoMode, providers = [], provider }: { demoMode?: 
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center text-lens-text-dim">
-        <p>Computing stats…</p>
+        <LoadingSpinner label="Computing stats…" />
       </div>
     );
   }

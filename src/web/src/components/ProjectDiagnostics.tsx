@@ -3,6 +3,7 @@ import { FolderOpen } from 'lucide-react';
 import type { ProjectStats } from '../types';
 import { fmt, apiUrl, prettifyProjectName } from '../utils';
 import { ActivityHeatmap } from './ActivityHeatmap';
+import { LoadingSpinner } from './LoadingSpinner';
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -67,7 +68,7 @@ export function ProjectDiagnostics({ projectId, demoMode }: { projectId: string;
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center text-lens-text-dim">
-        <p>Computing project stats…</p>
+        <LoadingSpinner label="Computing project stats…" />
       </div>
     );
   }

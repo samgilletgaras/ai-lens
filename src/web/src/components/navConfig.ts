@@ -3,7 +3,7 @@ import type { LucideIcon } from 'lucide-react';
 import { MessageSquare, Activity, Layers, Bot, Plug, Brain, ClipboardList } from 'lucide-react';
 import type { ProviderCapabilities, ProviderInfo } from '../types';
 import type { AppView } from '../routing';
-import { LogsViewer } from './LogsViewer';
+import { GlobalDiagnostics } from './GlobalDiagnostics';
 import { SkillsViewer } from './SkillsViewer';
 import { AgentsViewer } from './AgentsViewer';
 import { MCPsViewer } from './MCPsViewer';
@@ -28,6 +28,6 @@ export const NAV_ITEMS: NavItem[] = [
 // `providers` is consumed only by views that surface provider provenance (e.g. the
 // all-mode Diagnostics cost breakdown); others ignore it.
 export const SIMPLE_VIEWS: Partial<Record<AppView, ComponentType<{ demoMode: boolean; providers: ProviderInfo[]; provider?: string | null; showSourcePaths?: boolean }>>> = {
-  logs: LogsViewer, skills: SkillsViewer, agents: AgentsViewer,
+  logs: GlobalDiagnostics, skills: SkillsViewer, agents: AgentsViewer,
   mcps: MCPsViewer, memory: MemoryViewer, plans: PlansViewer,
 };
