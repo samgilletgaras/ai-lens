@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
-import { PROJECTS_DIR, isTmp, isWithin } from '../../utils.js';
+import { PROJECTS_DIR, isTmp, isWithin, tildeHome } from '../../utils.js';
 import { register } from '../sessions.js';
 
 const _sessionCache = {};
@@ -64,7 +64,7 @@ async function getSessions(project, page, pageSize) {
         } else if (p.type === 'attachment' || p.type === 'system') { hasMessages = true; }
       } catch { /* skip */ }
     }
-    if (hasMessages) sessions.push({ id: sessionId, project, lastUpdated: lastMessageTs || 0, firstMessageTs, preview, tokens: { input: tokIn, output: tokOut, cacheRead: tokCR, cacheCreation: tokCC }, turnCount });
+    if (hasMessages) sessions.push({ id: sessionId, project, lastUpdated: lastMessageTs || 0, firstMessageTs, preview, tokens: { input: tokIn, output: tokOut, cacheRead: tokCR, cacheCreation: tokCC }, turnCount, sourcePaths: [tildeHome(path.join(pPath, `${sessionId}.jsonl`))] });
   }
   sessions.sort((a, b) => b.lastUpdated - a.lastUpdated);
   _sessionCache[project] = { key: cacheKey, sessions };

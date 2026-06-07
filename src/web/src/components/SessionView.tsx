@@ -5,11 +5,12 @@ import { fmt } from '../utils';
 import { MessageBubble } from './MessageBubble';
 import { extractMessageText, getSessionDuration, exportSession } from '../session';
 
-export function SessionView({ conv, messages, loading, assistantLabel }: {
+export function SessionView({ conv, messages, loading, assistantLabel, showSourcePaths = true }: {
   conv: ConversationSummary;
   messages: Message[];
   loading: boolean;
   assistantLabel: string;
+  showSourcePaths?: boolean;
 }) {
   const [search, setSearch] = useState('');
   const [matchIdx, setMatchIdx] = useState(0);
@@ -115,6 +116,16 @@ export function SessionView({ conv, messages, loading, assistantLabel }: {
           Export ↓
         </button>
       </div>
+
+      {/* Source file paths */}
+      {showSourcePaths && conv.sourcePaths && conv.sourcePaths.length > 0 && (
+        <div className="shrink-0 px-4 md:px-8 lg:px-12 py-1 text-[10px] text-lens-text-faint border-b border-lens-border/40 flex items-center gap-2 flex-wrap">
+          <span>Sources:</span>
+          {conv.sourcePaths.map((p, i) => (
+            <span key={i} title={p} className="font-mono">{p}</span>
+          ))}
+        </div>
+      )}
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto w-full relative">

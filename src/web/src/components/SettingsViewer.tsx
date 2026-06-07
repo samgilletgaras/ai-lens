@@ -17,9 +17,11 @@ interface Props {
   onToggle: (value: boolean) => void;
   theme: 'default' | 'tycho' | 'parchment';
   onThemeChange: (t: 'default' | 'tycho' | 'parchment') => void;
+  showSourcePaths: boolean;
+  onShowSourcePathsChange: (v: boolean) => void;
 }
 
-export function SettingsViewer({ demoMode, providers, provider, onProviderChange, onToggle, theme, onThemeChange }: Props) {
+export function SettingsViewer({ demoMode, providers, provider, onProviderChange, onToggle, theme, onThemeChange, showSourcePaths, onShowSourcePathsChange }: Props) {
   const [version, setVersion] = useState<string | null>(null);
 
   useEffect(() => {
@@ -100,6 +102,27 @@ export function SettingsViewer({ demoMode, providers, provider, onProviderChange
             >
               <span
                 className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${demoMode ? 'translate-x-4' : 'translate-x-0'}`}
+              />
+            </button>
+          </div>
+
+          <div className="border-t border-lens-border" />
+
+          <div className="flex items-center justify-between px-4 py-4">
+            <div>
+              <div className="text-sm font-medium text-lens-text">Show source file paths</div>
+              <div className="text-xs text-lens-text-dim mt-0.5">
+                Display the on-disk path of each item's source file — sessions, skills, agents, MCPs, memory, and plans. Useful for locating and inspecting the raw data files.
+              </div>
+            </div>
+            <button
+              role="switch"
+              aria-checked={showSourcePaths}
+              onClick={() => onShowSourcePathsChange(!showSourcePaths)}
+              className={`relative shrink-0 ml-6 w-10 h-6 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-lens-accent ${showSourcePaths ? 'bg-lens-accent' : 'bg-lens-border'}`}
+            >
+              <span
+                className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${showSourcePaths ? 'translate-x-4' : 'translate-x-0'}`}
               />
             </button>
           </div>

@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { PLANS_DIR, CACHE_TTL, parseFrontmatter } from '../../utils.js';
+import { PLANS_DIR, CACHE_TTL, parseFrontmatter, tildeHome } from '../../utils.js';
 import { register } from '../plans.js';
 
 let _plansCache = null;
@@ -30,7 +30,7 @@ async function getPlans(filename = null) {
           break;
         }
       }
-      plans.push({ filename: f, title, snippet, mtime, ...(filename ? { body } : {}) });
+      plans.push({ filename: f, title, snippet, mtime, sourcePath: tildeHome(path.join(PLANS_DIR, f)), ...(filename ? { body } : {}) });
     } catch(e) {}
   }
   plans.sort((a, b) => b.mtime - a.mtime);

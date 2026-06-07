@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { parseFrontmatter, CACHE_TTL, isTmp } from '../../utils.js';
+import { parseFrontmatter, CACHE_TTL, isTmp, tildeHome } from '../../utils.js';
 import { getCandidateDirs, getUserDirs } from './ghcopilot-vscode-sessions.js';
 import { register } from '../memory.js';
 
@@ -113,6 +113,7 @@ async function getMemory(project = null, filename = null) {
         description: meta.description || null,
         type: meta.type || null,
         snippet: body.trim().slice(0, 200) || null,
+        sourcePath: tildeHome(e.fullPath),
         ...(filename ? { frontmatter: { ...meta }, body } : {}),
       });
     } catch(e) {}

@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import readline from 'readline';
-import { CACHE_TTL, isTmp } from '../../utils.js';
+import { CACHE_TTL, isTmp, tildeHome } from '../../utils.js';
 import { register } from '../sessions.js';
 
 // ─── Workspace discovery ──────────────────────────────────────────────────────
@@ -177,7 +177,10 @@ async function summariseFile(filePath, sessionId, project) {
       metadata.model = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
     }
   }
-  return { id: sessionId, project, firstMessageTs: firstTs ?? 0, lastUpdated: lastTs ?? firstTs ?? 0, preview, turnCount, metadata };
+  const chatPath = chatSessionPathFor(filePath, sessionId);
+  const sourcePaths = [tildeHome(filePath)];
+  if (fs.existsSync(chatPath)) sourcePaths.push(tildeHome(chatPath));
+  return { id: sessionId, project, firstMessageTs: firstTs ?? 0, lastUpdated: lastTs ?? firstTs ?? 0, preview, turnCount, metadata, sourcePaths };
 }
 
 function tryParseJson(s) { try { return JSON.parse(s); } catch { return s; } }

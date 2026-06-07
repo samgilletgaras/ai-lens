@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { parseFrontmatter, CACHE_TTL, isTmp } from '../../utils.js';
+import { parseFrontmatter, CACHE_TTL, isTmp, tildeHome } from '../../utils.js';
 import { getCandidateDirs, getUserDirs } from './ghcopilot-vscode-sessions.js';
 import { register } from '../plans.js';
 
@@ -107,7 +107,7 @@ function toPlan(entry, withBody) {
       break;
     }
   }
-  return { filename: entry.filename, title, snippet, mtime, ...(withBody ? { body } : {}) };
+  return { filename: entry.filename, title, snippet, mtime, sourcePath: tildeHome(entry.fullPath), ...(withBody ? { body } : {}) };
 }
 
 async function getPlans(filename = null) {

@@ -68,6 +68,11 @@ export const MODEL_PRICING = {
   'claude-haiku-4-5': [1, 5], 'claude-3-5-haiku': [0.8, 4], 'claude-3-haiku': [0.25, 1.25],
 };
 
+export function tildeHome(p) {
+  const home = os.homedir();
+  return p.startsWith(home) ? `~${p.slice(home.length)}` : p;
+}
+
 export function isTmp(name) {
   return name === 'tmp' || name.endsWith('-tmp');
 }

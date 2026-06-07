@@ -6,7 +6,7 @@ import type { Plan, PlanDetail, ProviderInfo } from '../types';
 import { formatRelative, apiUrl } from '../utils';
 import { ProviderBadge } from './ProviderBadge';
 
-export function PlansViewer({ demoMode, providers = [] }: { demoMode?: boolean; providers?: ProviderInfo[] }) {
+export function PlansViewer({ demoMode, providers = [], showSourcePaths = true }: { demoMode?: boolean; providers?: ProviderInfo[]; showSourcePaths?: boolean }) {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,9 +64,14 @@ export function PlansViewer({ demoMode, providers = [] }: { demoMode?: boolean; 
             <h1 className="text-2xl font-semibold text-lens-text">{selected.title}</h1>
             {selected.provider && <ProviderBadge id={selected.provider} providers={providers} />}
           </div>
-          <div className="font-mono text-[11px] text-lens-text-faint mb-6">
+          <div className="font-mono text-[11px] text-lens-text-faint mb-1">
             {selected.filename} · {formatRelative(selected.mtime)}
           </div>
+          {showSourcePaths && selected.sourcePath && (
+            <div className="font-mono text-[10px] text-lens-text-faint mb-5" title={selected.sourcePath}>
+              Source: {selected.sourcePath}
+            </div>
+          )}
 
           {detailLoading && <p className="text-lens-text-dim text-sm">Loading…</p>}
 

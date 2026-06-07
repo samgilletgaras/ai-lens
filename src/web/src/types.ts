@@ -66,6 +66,7 @@ export interface ConversationSummary {
   tokens?: { input: number; output: number; cacheRead: number; cacheCreation: number };
   turnCount?: number;
   metadata?: Record<string, string>;
+  sourcePaths?: string[];
   provider?: string; // source provider id, set only under the "All Providers" view
 }
 
@@ -86,6 +87,7 @@ export interface Skill {
   trigger: string | null;
   totalCalls: number;
   lastUsed: number | null;
+  sourcePath?: string;
   provider?: string; // source provider id, set only under the "All Providers" view
 }
 
@@ -95,6 +97,7 @@ export interface SkillDetail {
   hasSkillMd: boolean;
   frontmatter: Record<string, string>;
   body: string | null;
+  sourcePath?: string;
 }
 
 export interface LogEntry {
@@ -134,6 +137,7 @@ export interface MemoryEntry {
   description: string | null;
   type: 'user' | 'feedback' | 'project' | 'reference' | null;
   snippet: string | null;
+  sourcePath?: string;
   provider?: string; // source provider id, set only under the "All Providers" view
 }
 
@@ -147,6 +151,7 @@ export interface Plan {
   title: string;
   snippet: string | null;
   mtime: number;
+  sourcePath?: string;
   provider?: string; // source provider id, set only under the "All Providers" view
 }
 

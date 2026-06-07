@@ -53,7 +53,8 @@ Node core only (`http`, `fs`, `readline`, `os`, `path`).
   (`{ id: providerModule }`). `/api/config` builds the provider list and
   **prepends a synthesized `all` ("All Providers") meta-provider**.
 - **`utils.js`** — path constants (`CLAUDE_DIR`, `PROJECTS_DIR`, …), `CACHE_TTL`,
-  `MODEL_PRICING`, `isTmp`, `parseFrontmatter`, and the `all`-provider id helpers
+  `MODEL_PRICING`, `isTmp`, `parseFrontmatter`, `tildeHome` (collapses
+  `os.homedir()` to `~` for display paths), and the `all`-provider id helpers
   (`packId`/`unpackId`).
 - **`providers/<id>.js`** — declares a provider's `name`, `capabilities`,
   `isAvailable()` (+ optional `icon`), and imports its `readers/<id>/*.js` modules.
@@ -85,6 +86,15 @@ label in the message view. For **detail** fetches under `all`, the UI passes a
 `from=<provider>` hint (derived from the list item's `provider`) so the hub routes
 deterministically instead of guessing by a colliding slug/id; memory routes via its
 already-namespaced `project` id instead.
+
+**Source file paths:** every entity type exposes its on-disk path(s), collapsed to
+`~` via `tildeHome()`, so the UI can disclose where data lives. Sessions carry
+`sourcePaths: string[]` (multiple files for Copilot: transcript + chatSessions).
+Skills, agents, memory entries, and plans carry `sourcePath: string`. MCPs use the
+existing `source: string` field (Copilot already had it; Claude plugin MCPs now
+populate it too; cloud MCPs have no file). The frontend gates all disclosures on the
+`showSourcePaths` user preference (`localStorage` key `lens-show-source-paths`,
+default off), toggled in Settings.
 
 #### The 12 endpoints
 

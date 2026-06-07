@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
-import { PROJECTS_DIR, CLAUDE_DIR, MCP_PLUGINS_DIR, CACHE_TTL, isTmp } from '../../utils.js';
+import { PROJECTS_DIR, CLAUDE_DIR, MCP_PLUGINS_DIR, CACHE_TTL, isTmp, tildeHome } from '../../utils.js';
 import { register } from '../mcps.js';
 
 let _usageCache = null, _usageCacheTs = 0;
@@ -114,6 +114,7 @@ async function getMcps(serverId = null) {
       totalCalls: usage ? usage.totalCalls : 0,
       lastUsed: usage ? usage.lastUsed || null : null,
       ...(auth ? { auth } : {}),
+      ...(cfg && !isClaude ? { source: tildeHome(path.join(MCP_PLUGINS_DIR, cfg.dirName, '.mcp.json')) } : {}),
       ...(serverId ? { tools: toolsArr } : {}),
     });
   }

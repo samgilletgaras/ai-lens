@@ -47,6 +47,7 @@ function App() {
     return p;
   });
   const [providers, setProviders] = useState<ProviderInfo[]>([]);
+  const [showSourcePaths, setShowSourcePaths] = useState<boolean>(() => localStorage.getItem('lens-show-source-paths') === 'true');
 
   const skipHashRead = useRef(false);
   const activeProjectIdRef = useRef<string | null>(null);
@@ -436,9 +437,9 @@ function App() {
           </div>
         )}
         {currentView === 'settings' ? (
-          <SettingsViewer demoMode={demoMode} providers={providers} provider={provider} onProviderChange={handleProviderChange} onToggle={handleDemoToggle} theme={theme} onThemeChange={handleThemeChange} />
+          <SettingsViewer demoMode={demoMode} providers={providers} provider={provider} onProviderChange={handleProviderChange} onToggle={handleDemoToggle} theme={theme} onThemeChange={handleThemeChange} showSourcePaths={showSourcePaths} onShowSourcePathsChange={v => { setShowSourcePaths(v); localStorage.setItem('lens-show-source-paths', String(v)); }} />
         ) : SimpleView ? (
-          <SimpleView key={refreshKey} demoMode={demoMode} providers={providers} provider={provider} />
+          <SimpleView key={refreshKey} demoMode={demoMode} providers={providers} provider={provider} showSourcePaths={showSourcePaths} />
         ) : activeProjectId === null ? (
           <ProjectGrid projects={projects} providers={providers} onOpen={openProject} />
         ) : activeConv ? (
@@ -448,6 +449,7 @@ function App() {
             messages={activeMessages}
             loading={messagesLoading}
             assistantLabel={providers.find(p => p.id === activeConv.provider)?.name ?? activeProviderInfo?.name ?? 'Assistant'}
+            showSourcePaths={showSourcePaths}
           />
         ) : activeProjectId !== null && !activeConv ? (
           <ProjectDiagnostics key={activeProjectId} projectId={activeProjectId} demoMode={demoMode} />

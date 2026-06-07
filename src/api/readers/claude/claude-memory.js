@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { PROJECTS_DIR, isTmp, parseFrontmatter, CACHE_TTL } from '../../utils.js';
+import { PROJECTS_DIR, isTmp, parseFrontmatter, CACHE_TTL, tildeHome } from '../../utils.js';
 import { register } from '../memory.js';
 
 const _memoryCache = new Map();
@@ -38,6 +38,7 @@ async function getMemory(project = null, filename = null) {
           description: meta.description || null,
           type,
           snippet: body.trim().slice(0, 200) || null,
+          sourcePath: tildeHome(path.join(memDir, f)),
           ...(filename ? { frontmatter: { ...meta }, body } : {}),
         });
       } catch(e) {}

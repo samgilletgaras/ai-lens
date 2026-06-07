@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { parseFrontmatter, CACHE_TTL } from '../../utils.js';
+import { parseFrontmatter, CACHE_TTL, tildeHome } from '../../utils.js';
 import { register } from '../skills.js';
 
 // Global Copilot skills: ~/.copilot/skills/<slug>/SKILL.md
@@ -32,7 +32,7 @@ async function getSkills() {
     }
     const name = meta.name || entry.split(/[-_]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     const trigger = meta.trigger || null;
-    skills.push({ slug: entry, name, description, hasSkillMd: true, trigger, totalCalls: 0, lastUsed: null });
+    skills.push({ slug: entry, name, description, hasSkillMd: true, trigger, totalCalls: 0, lastUsed: null, sourcePath: tildeHome(skillMdPath) });
   }
   skills.sort((a, b) => a.slug.localeCompare(b.slug));
   _cache = skills;
@@ -51,7 +51,7 @@ function getSkillDetail(slug) {
   for (const [k, v] of Object.entries(meta)) {
     if (v !== undefined && v !== null && v !== '') displayMeta[k] = String(v);
   }
-  return { slug, name, hasSkillMd: true, frontmatter: displayMeta, body: body || null };
+  return { slug, name, hasSkillMd: true, frontmatter: displayMeta, body: body || null, sourcePath: tildeHome(skillMdPath) };
 }
 
 register('ghcopilot-vscode', { getSkills, getSkillDetail });

@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
-import { PROJECTS_DIR, SKILLS_DIR, CACHE_TTL, isTmp, parseFrontmatter } from '../../utils.js';
+import { PROJECTS_DIR, SKILLS_DIR, CACHE_TTL, isTmp, parseFrontmatter, tildeHome } from '../../utils.js';
 import { register } from '../skills.js';
 
 let _usageCache = null, _usageCacheTs = 0;
@@ -70,7 +70,7 @@ async function getSkills() {
     }
     const name = entry.split(/[-_]/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
     const u = usageMap[entry];
-    skills.push({ slug: entry, name, description, hasSkillMd, trigger, totalCalls: u ? u.totalCalls : 0, lastUsed: u ? u.lastUsed || null : null });
+    skills.push({ slug: entry, name, description, hasSkillMd, trigger, totalCalls: u ? u.totalCalls : 0, lastUsed: u ? u.lastUsed || null : null, sourcePath: tildeHome(path.join(entryPath, 'SKILL.md')) });
   }
   return skills.sort((a, b) => b.totalCalls - a.totalCalls || a.slug.localeCompare(b.slug));
 }
@@ -87,7 +87,7 @@ function getSkillDetail(slug) {
     frontmatter = parsed.meta;
     body = parsed.body;
   }
-  return { slug, name, hasSkillMd, frontmatter, body };
+  return { slug, name, hasSkillMd, frontmatter, body, sourcePath: tildeHome(skillMdPath) };
 }
 
 register('claude', { getSkills, getSkillDetail });

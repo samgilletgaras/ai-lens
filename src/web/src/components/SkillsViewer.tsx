@@ -21,7 +21,7 @@ function formatDate(ts: number | null) {
   return new Date(ts).toLocaleDateString();
 }
 
-export function SkillsViewer({ demoMode, providers = [] }: { demoMode?: boolean; providers?: ProviderInfo[] }) {
+export function SkillsViewer({ demoMode, providers = [], showSourcePaths = true }: { demoMode?: boolean; providers?: ProviderInfo[]; showSourcePaths?: boolean }) {
   const [skills, setSkills] = useState<Skill[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +104,12 @@ export function SkillsViewer({ demoMode, providers = [] }: { demoMode?: boolean;
                   <span className="text-lens-text-body break-all">{val}</span>
                 </div>
               ))}
+            </div>
+          )}
+
+          {!contentLoading && showSourcePaths && skillDetail?.sourcePath && (
+            <div className="font-mono text-[10px] text-lens-text-faint mb-4" title={skillDetail.sourcePath}>
+              Source: {skillDetail.sourcePath}
             </div>
           )}
 

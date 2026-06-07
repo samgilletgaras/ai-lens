@@ -86,7 +86,7 @@ function ProjectGroups({ entries, onOpen, providers }: { entries: MemoryEntry[];
   );
 }
 
-export function MemoryViewer({ demoMode, providers = [] }: { demoMode?: boolean; providers?: ProviderInfo[] }) {
+export function MemoryViewer({ demoMode, providers = [], showSourcePaths = true }: { demoMode?: boolean; providers?: ProviderInfo[]; showSourcePaths?: boolean }) {
   const [entries, setEntries] = useState<MemoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -148,9 +148,14 @@ export function MemoryViewer({ demoMode, providers = [] }: { demoMode?: boolean;
             <TypeBadge type={selected.type} />
             {selected.provider && <ProviderBadge id={selected.provider} providers={providers} />}
           </div>
-          <div className="font-mono text-[11px] text-lens-text-faint mb-6">
+          <div className="font-mono text-[11px] text-lens-text-faint mb-1">
             {prettifyProjectName(selected.project)} · {selected.filename}
           </div>
+          {showSourcePaths && selected.sourcePath && (
+            <div className="font-mono text-[10px] text-lens-text-faint mb-5" title={selected.sourcePath}>
+              Source: {selected.sourcePath}
+            </div>
+          )}
 
           {detailLoading && <p className="text-lens-text-dim text-sm">Loading…</p>}
 

@@ -6,7 +6,7 @@ import type { Skill, SkillDetail, ProviderInfo } from '../types';
 import { apiUrl } from '../utils';
 import { ProviderBadge } from './ProviderBadge';
 
-export function AgentsViewer({ demoMode, providers = [] }: { demoMode?: boolean; providers?: ProviderInfo[] }) {
+export function AgentsViewer({ demoMode, providers = [], showSourcePaths = true }: { demoMode?: boolean; providers?: ProviderInfo[]; showSourcePaths?: boolean }) {
   const [agents, setAgents] = useState<Skill[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +70,12 @@ export function AgentsViewer({ demoMode, providers = [] }: { demoMode?: boolean;
                   <span className="text-lens-text-body break-all">{val}</span>
                 </div>
               ))}
+            </div>
+          )}
+
+          {!detailLoading && showSourcePaths && detail?.sourcePath && (
+            <div className="font-mono text-[10px] text-lens-text-faint mb-4" title={detail.sourcePath}>
+              Source: {detail.sourcePath}
             </div>
           )}
 

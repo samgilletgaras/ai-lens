@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { AGENTS_DIR, CACHE_TTL, parseFrontmatter } from '../../utils.js';
+import { AGENTS_DIR, CACHE_TTL, parseFrontmatter, tildeHome } from '../../utils.js';
 import { register } from '../agents.js';
 
 let _cache = null, _cacheTime = 0;
@@ -41,7 +41,7 @@ async function getAgents() {
   const agents = [];
   scanDir(AGENTS_DIR, agents, new Set());
   agents.sort((a, b) => a.name.localeCompare(b.name));
-  _cache = agents.map(({ _filePath, _meta, _body, ...rest }) => rest);
+  _cache = agents.map(({ _filePath, _meta, _body, ...rest }) => ({ ...rest, sourcePath: tildeHome(_filePath) }));
   _cacheTime = now;
   return _cache;
 }
@@ -55,7 +55,7 @@ function getAgentDetail(slug) {
   for (const [k, v] of Object.entries(agent._meta)) {
     if (v !== undefined && v !== null && v !== '') displayMeta[k] = String(v);
   }
-  return { slug: agent.slug, name: agent.name, hasSkillMd: true, frontmatter: displayMeta, body: agent._body || null };
+  return { slug: agent.slug, name: agent.name, hasSkillMd: true, frontmatter: displayMeta, body: agent._body || null, sourcePath: tildeHome(agent._filePath) };
 }
 
 register('claude', { getAgents, getAgentDetail });

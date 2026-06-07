@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { parseFrontmatter, CACHE_TTL } from '../../utils.js';
+import { parseFrontmatter, CACHE_TTL, tildeHome } from '../../utils.js';
 import { getUserDirs } from './ghcopilot-vscode-sessions.js';
 import { register } from '../agents.js';
 
@@ -55,7 +55,7 @@ async function getAgents() {
   const now = Date.now();
   if (_cache && now - _cacheTime < CACHE_TTL) return _cache;
   const all = scanAll();
-  _cache = all.map(({ _filePath, _meta, _body, ...rest }) => rest);
+  _cache = all.map(({ _filePath, _meta, _body, ...rest }) => ({ ...rest, sourcePath: tildeHome(_filePath) }));
   _cacheTime = now;
   return _cache;
 }
@@ -67,7 +67,7 @@ function getAgentDetail(slug) {
   for (const [k, v] of Object.entries(agent._meta)) {
     if (v !== undefined && v !== null && v !== '') displayMeta[k] = String(v);
   }
-  return { slug: agent.slug, name: agent.name, hasSkillMd: true, frontmatter: displayMeta, body: agent._body || null };
+  return { slug: agent.slug, name: agent.name, hasSkillMd: true, frontmatter: displayMeta, body: agent._body || null, sourcePath: tildeHome(agent._filePath) };
 }
 
 register('ghcopilot-vscode', { getAgents, getAgentDetail });

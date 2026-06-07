@@ -15,7 +15,7 @@ function formatDate(ts: number | null) {
   return new Date(ts).toLocaleDateString();
 }
 
-export function MCPsViewer({ demoMode, providers = [] }: { demoMode?: boolean; providers?: ProviderInfo[] }) {
+export function MCPsViewer({ demoMode, providers = [], showSourcePaths = true }: { demoMode?: boolean; providers?: ProviderInfo[]; showSourcePaths?: boolean }) {
   const [servers, setServers] = useState<MCPServer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -99,7 +99,7 @@ export function MCPsViewer({ demoMode, providers = [] }: { demoMode?: boolean; p
                   <span>{selected.totalCalls.toLocaleString()} total calls</span>
                   <span>{selected.toolCount} tools used</span>
                   {selected.lastUsed && <span>Last used {formatDate(selected.lastUsed)}</span>}
-                  {selected.source && <span className="font-mono text-lens-text-faint truncate">{selected.source}</span>}
+                  {showSourcePaths && selected.source && <span className="font-mono text-lens-text-faint truncate" title={selected.source}>{selected.source}</span>}
                 </div>
               </div>
 
