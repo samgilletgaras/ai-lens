@@ -5,12 +5,14 @@ import { Bot, ArrowLeft, Search } from 'lucide-react';
 import type { Skill, SkillDetail, ProviderInfo } from '../types';
 import { apiUrl } from '../utils';
 import { ProviderBadge } from './ProviderBadge';
+import { ProviderFilterBar } from './ProviderFilterBar';
 
-export function AgentsViewer({ demoMode, providers = [], showSourcePaths = true }: { demoMode?: boolean; providers?: ProviderInfo[]; showSourcePaths?: boolean }) {
+export function AgentsViewer({ demoMode, providers = [], provider, showSourcePaths = true }: { demoMode?: boolean; providers?: ProviderInfo[]; provider?: string | null; showSourcePaths?: boolean }) {
   const [agents, setAgents] = useState<Skill[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [providerFilter, setProviderFilter] = useState<string | null>(null);
   const [selected, setSelected] = useState<Skill | null>(null);
   const [detail, setDetail] = useState<SkillDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -93,10 +95,19 @@ export function AgentsViewer({ demoMode, providers = [], showSourcePaths = true 
   if (error) return <div className="flex-1 flex items-center justify-center text-rose-400 text-sm"><p>{error}</p></div>;
   if (agents.length === 0) return <div className="flex-1 flex items-center justify-center text-lens-text-dim"><p>No agents found</p></div>;
 
+  const isAllMode = !provider || provider === 'all';
+  const presentProviderIds = isAllMode
+    ? [...new Set(agents.flatMap(a => a.providers ?? []))].sort()
+    : [];
+
+  const providerFiltered = providerFilter
+    ? agents.filter(a => a.providers?.includes(providerFilter))
+    : agents;
+
   const q = search.toLowerCase().trim();
   const filtered = q
-    ? agents.filter(a => a.name.toLowerCase().includes(q) || (a.description && a.description.toLowerCase().includes(q)))
-    : agents;
+    ? providerFiltered.filter(a => a.name.toLowerCase().includes(q) || (a.description && a.description.toLowerCase().includes(q)))
+    : providerFiltered;
 
   return (
     <div className="flex-1 overflow-y-auto w-full">
@@ -116,9 +127,12 @@ export function AgentsViewer({ demoMode, providers = [], showSourcePaths = true 
             />
           </div>
         </div>
-        <p className="text-lens-text-dim text-sm mb-6">
+        <p className="text-lens-text-dim text-sm mb-4">
           {q ? `${filtered.length} of ${agents.length} agents` : `${agents.length} agents`}
         </p>
+        {isAllMode && (
+          <ProviderFilterBar providers={providers} presentIds={presentProviderIds} filter={providerFilter} onChange={setProviderFilter} />
+        )}
         {filtered.length === 0 ? (
           <p className="text-lens-text-dim text-sm">No agents match &ldquo;{search}&rdquo;</p>
         ) : (

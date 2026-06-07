@@ -441,7 +441,7 @@ function App() {
         ) : SimpleView ? (
           <SimpleView key={refreshKey} demoMode={demoMode} providers={providers} provider={provider} showSourcePaths={showSourcePaths} />
         ) : activeProjectId === null ? (
-          <ProjectGrid projects={projects} providers={providers} onOpen={openProject} />
+          <ProjectGrid projects={projects} providers={providers} provider={provider} onOpen={openProject} />
         ) : activeConv ? (
           <SessionView
             key={activeConv.id}

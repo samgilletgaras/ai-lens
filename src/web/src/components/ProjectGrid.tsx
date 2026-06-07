@@ -2,17 +2,25 @@ import { useState } from 'react';
 import { FolderOpen } from 'lucide-react';
 import type { ProjectSummary, ProviderInfo } from '../types';
 import { prettifyProjectName, formatRelative, slugify } from '../utils';
+import { ProviderFilterBar } from './ProviderFilterBar';
 
 type ProjectSort = 'updated' | 'sessions' | 'name';
 
-export function ProjectGrid({ projects, providers, onOpen }: {
+export function ProjectGrid({ projects, providers, provider, onOpen }: {
   projects: ProjectSummary[];
   providers: ProviderInfo[];
+  provider?: string | null;
   onOpen: (id: string) => void;
 }) {
   const [sort, setSort] = useState<ProjectSort>('updated');
+  const [providerFilter, setProviderFilter] = useState<string | null>(null);
 
-  const sorted = [...projects].sort((a, b) => {
+  const isAllMode = !provider || provider === 'all';
+  const presentProviderIds = isAllMode
+    ? [...new Set(projects.map(p => p.provider).filter((p): p is string => !!p))].sort()
+    : [];
+
+  const sorted = [...projects].filter(p => !providerFilter || p.provider === providerFilter).sort((a, b) => {
     if (sort === 'name') return prettifyProjectName(a.id).localeCompare(prettifyProjectName(b.id));
     if (sort === 'sessions') return b.sessionCount - a.sessionCount;
     return (b.lastUpdated || 0) - (a.lastUpdated || 0);
@@ -21,7 +29,7 @@ export function ProjectGrid({ projects, providers, onOpen }: {
   return (
     <div className="flex-1 overflow-y-auto w-full">
       <div className="p-8 max-w-7xl mx-auto">
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center gap-3 mb-4">
           <h2 className="text-2xl font-semibold flex items-center flex-1 gap-3">
             <FolderOpen className="text-lens-accent shrink-0" /> Select a Project
           </h2>
@@ -33,6 +41,9 @@ export function ProjectGrid({ projects, providers, onOpen }: {
             ))}
           </div>
         </div>
+        {isAllMode && (
+          <ProviderFilterBar providers={providers} presentIds={presentProviderIds} filter={providerFilter} onChange={setProviderFilter} />
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {sorted.map(proj => (
             <button key={proj.id} onClick={() => onOpen(proj.id)} className="bg-lens-surface border border-lens-border hover:border-lens-border-hi rounded-lg p-6 text-left transition-colors flex flex-col">

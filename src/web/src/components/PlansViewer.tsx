@@ -5,12 +5,14 @@ import { ClipboardList, ArrowLeft, Search } from 'lucide-react';
 import type { Plan, PlanDetail, ProviderInfo } from '../types';
 import { formatRelative, apiUrl } from '../utils';
 import { ProviderBadge } from './ProviderBadge';
+import { ProviderFilterBar } from './ProviderFilterBar';
 
-export function PlansViewer({ demoMode, providers = [], showSourcePaths = true }: { demoMode?: boolean; providers?: ProviderInfo[]; showSourcePaths?: boolean }) {
+export function PlansViewer({ demoMode, providers = [], provider, showSourcePaths = true }: { demoMode?: boolean; providers?: ProviderInfo[]; provider?: string | null; showSourcePaths?: boolean }) {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [providerFilter, setProviderFilter] = useState<string | null>(null);
   const [selected, setSelected] = useState<Plan | null>(null);
   const [detail, setDetail] = useState<PlanDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -105,14 +107,23 @@ export function PlansViewer({ demoMode, providers = [], showSourcePaths = true }
     );
   }
 
+  const isAllMode = !provider || provider === 'all';
+  const presentProviderIds = isAllMode
+    ? [...new Set(plans.flatMap(p => p.providers ?? []))].sort()
+    : [];
+
+  const providerFiltered = providerFilter
+    ? plans.filter(p => p.providers?.includes(providerFilter))
+    : plans;
+
   const q = search.toLowerCase().trim();
   const filtered = q
-    ? plans.filter(p =>
+    ? providerFiltered.filter(p =>
         p.title.toLowerCase().includes(q) ||
         p.filename.toLowerCase().includes(q) ||
         (p.snippet?.toLowerCase().includes(q))
       )
-    : plans;
+    : providerFiltered;
 
   return (
     <div className="flex-1 overflow-y-auto w-full">
@@ -132,9 +143,12 @@ export function PlansViewer({ demoMode, providers = [], showSourcePaths = true }
             />
           </div>
         </div>
-        <p className="text-lens-text-dim text-sm mb-6">
+        <p className="text-lens-text-dim text-sm mb-4">
           {q ? `${filtered.length} of ${plans.length} plans` : `${plans.length} plans`}
         </p>
+        {isAllMode && (
+          <ProviderFilterBar providers={providers} presentIds={presentProviderIds} filter={providerFilter} onChange={setProviderFilter} />
+        )}
         {filtered.length === 0 ? (
           <p className="text-lens-text-dim text-sm">No plans match &ldquo;{search}&rdquo;</p>
         ) : (

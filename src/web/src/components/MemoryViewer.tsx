@@ -5,6 +5,7 @@ import { Brain, ArrowLeft, Search, ChevronRight } from 'lucide-react';
 import type { MemoryEntry, MemoryEntryDetail, ProviderInfo } from '../types';
 import { apiUrl, prettifyProjectName } from '../utils';
 import { ProviderBadge } from './ProviderBadge';
+import { ProviderFilterBar } from './ProviderFilterBar';
 
 type MemoryType = 'user' | 'feedback' | 'project' | 'reference';
 
@@ -86,12 +87,13 @@ function ProjectGroups({ entries, onOpen, providers }: { entries: MemoryEntry[];
   );
 }
 
-export function MemoryViewer({ demoMode, providers = [], showSourcePaths = true }: { demoMode?: boolean; providers?: ProviderInfo[]; showSourcePaths?: boolean }) {
+export function MemoryViewer({ demoMode, providers = [], provider, showSourcePaths = true }: { demoMode?: boolean; providers?: ProviderInfo[]; provider?: string | null; showSourcePaths?: boolean }) {
   const [entries, setEntries] = useState<MemoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<MemoryType | null>(null);
+  const [providerFilter, setProviderFilter] = useState<string | null>(null);
   const [selected, setSelected] = useState<MemoryEntry | null>(null);
   const [detail, setDetail] = useState<MemoryEntryDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -202,9 +204,15 @@ export function MemoryViewer({ demoMode, providers = [], showSourcePaths = true 
     );
   }
 
+  const isAllMode = !provider || provider === 'all';
+  const presentProviderIds = isAllMode
+    ? [...new Set(entries.flatMap(e => e.providers ?? []))].sort()
+    : [];
+
   const q = search.toLowerCase().trim();
   const filtered = entries.filter(e => {
     if (typeFilter && e.type !== typeFilter) return false;
+    if (providerFilter && !e.providers?.includes(providerFilter)) return false;
     if (!q) return true;
     return (
       e.name.toLowerCase().includes(q) ||
@@ -261,9 +269,12 @@ export function MemoryViewer({ demoMode, providers = [], showSourcePaths = true 
           })}
         </div>
 
-        <p className="text-lens-text-dim text-sm mb-6">
-          {q || typeFilter ? `${filtered.length} of ${entries.length} entries` : `${entries.length} memory entries`}
+        <p className="text-lens-text-dim text-sm mb-4">
+          {q || typeFilter || providerFilter ? `${filtered.length} of ${entries.length} entries` : `${entries.length} memory entries`}
         </p>
+        {isAllMode && (
+          <ProviderFilterBar providers={providers} presentIds={presentProviderIds} filter={providerFilter} onChange={setProviderFilter} />
+        )}
 
         {filtered.length === 0 ? (
           <p className="text-lens-text-dim text-sm">No entries match your search.</p>

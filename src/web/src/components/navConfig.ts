@@ -27,7 +27,7 @@ export const NAV_ITEMS: NavItem[] = [
 // Views that are a single self-fetching component sharing the same props.
 // `providers` is consumed only by views that surface provider provenance (e.g. the
 // all-mode Diagnostics cost breakdown); others ignore it.
-export const SIMPLE_VIEWS: Partial<Record<AppView, ComponentType<{ demoMode: boolean; providers: ProviderInfo[]; showSourcePaths?: boolean }>>> = {
+export const SIMPLE_VIEWS: Partial<Record<AppView, ComponentType<{ demoMode: boolean; providers: ProviderInfo[]; provider?: string | null; showSourcePaths?: boolean }>>> = {
   logs: LogsViewer, skills: SkillsViewer, agents: AgentsViewer,
   mcps: MCPsViewer, memory: MemoryViewer, plans: PlansViewer,
 };

@@ -5,6 +5,7 @@ import { Layers, ArrowLeft, Search, Zap } from 'lucide-react';
 import type { Skill, SkillDetail, ProviderInfo } from '../types';
 import { apiUrl } from '../utils';
 import { ProviderBadge } from './ProviderBadge';
+import { ProviderFilterBar } from './ProviderFilterBar';
 
 const META_LABEL: Record<string, string> = {
   name: 'Name',
@@ -21,11 +22,12 @@ function formatDate(ts: number | null) {
   return new Date(ts).toLocaleDateString();
 }
 
-export function SkillsViewer({ demoMode, providers = [], showSourcePaths = true }: { demoMode?: boolean; providers?: ProviderInfo[]; showSourcePaths?: boolean }) {
+export function SkillsViewer({ demoMode, providers = [], provider, showSourcePaths = true }: { demoMode?: boolean; providers?: ProviderInfo[]; provider?: string | null; showSourcePaths?: boolean }) {
   const [skills, setSkills] = useState<Skill[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [providerFilter, setProviderFilter] = useState<string | null>(null);
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const [skillDetail, setSkillDetail] = useState<SkillDetail | null>(null);
   const [contentLoading, setContentLoading] = useState(false);
@@ -151,14 +153,23 @@ export function SkillsViewer({ demoMode, providers = [], showSourcePaths = true 
     );
   }
 
+  const isAllMode = !provider || provider === 'all';
+  const presentProviderIds = isAllMode
+    ? [...new Set(skills.flatMap(s => s.providers ?? []))].sort()
+    : [];
+
+  const providerFiltered = providerFilter
+    ? skills.filter(s => s.providers?.includes(providerFilter))
+    : skills;
+
   const q = search.toLowerCase().trim();
   const filtered = q
-    ? skills.filter(s =>
+    ? providerFiltered.filter(s =>
         s.name.toLowerCase().includes(q) ||
         s.slug.toLowerCase().includes(q) ||
         (s.description && s.description.toLowerCase().includes(q))
       )
-    : skills;
+    : providerFiltered;
 
   return (
     <div className="flex-1 overflow-y-auto w-full">
@@ -178,7 +189,7 @@ export function SkillsViewer({ demoMode, providers = [], showSourcePaths = true 
             />
           </div>
         </div>
-        <p className="text-lens-text-dim text-sm mb-6">
+        <p className="text-lens-text-dim text-sm mb-4">
           {q
             ? `${filtered.length} of ${skills.length} skills`
             : (() => {
@@ -189,6 +200,9 @@ export function SkillsViewer({ demoMode, providers = [], showSourcePaths = true 
               })()
           }
         </p>
+        {isAllMode && (
+          <ProviderFilterBar providers={providers} presentIds={presentProviderIds} filter={providerFilter} onChange={setProviderFilter} />
+        )}
         {filtered.length === 0 ? (
           <p className="text-lens-text-dim text-sm">No skills match &ldquo;{search}&rdquo;</p>
         ) : (
