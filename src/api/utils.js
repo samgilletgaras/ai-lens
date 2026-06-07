@@ -53,14 +53,23 @@ export function unpackId(packed) {
     : { provider: packed.slice(0, i), id: packed.slice(i + ID_SEP.length) };
 }
 
+// [input, output] USD per 1M tokens. Matched via `model.includes(key)` (first
+// hit wins, see claude-stats.js), so order matters: list the more specific
+// 4.5+ Opus ids before the generic `claude-opus-4` catch-all, which prices the
+// older 4.0/4.1 (and date-suffixed) ids.
 export const MODEL_PRICING = {
+  // Opus 4.5+ generation
+  'claude-opus-4-5': [5, 25], 'claude-opus-4-6': [5, 25], 'claude-opus-4-7': [5, 25], 'claude-opus-4-8': [5, 25],
+  // Opus 4.0 / 4.1 and Opus 3 (generic key catches 4.0/4.1, incl. date-suffixed ids)
   'claude-opus-4': [15, 75], 'claude-3-opus': [15, 75],
-  'claude-sonnet-4': [3, 15], 'claude-3-5-sonnet': [3, 15], 'claude-3-sonnet': [3, 15],
-  'claude-haiku-4': [0.8, 4], 'claude-3-5-haiku': [0.8, 4], 'claude-3-haiku': [0.25, 1.25],
+  // Sonnet (4.x and 3.x are all priced the same)
+  'claude-sonnet-4': [3, 15], 'claude-3-7-sonnet': [3, 15], 'claude-3-5-sonnet': [3, 15], 'claude-3-sonnet': [3, 15],
+  // Haiku
+  'claude-haiku-4-5': [1, 5], 'claude-3-5-haiku': [0.8, 4], 'claude-3-haiku': [0.25, 1.25],
 };
 
 export function isTmp(name) {
-  return name === 'tmp' || name.endsWith('-tmp') || name.includes('tmp');
+  return name === 'tmp' || name.endsWith('-tmp');
 }
 
 // Guard against path traversal: returns true only when `target` resolves to a

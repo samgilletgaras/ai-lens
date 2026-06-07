@@ -121,5 +121,5 @@ That's it — name, icon, capabilities, and availability flow through `/api/conf
   hardcode a username, absolute path, workspace hash, or UUID.
 - **Provider isolation.** Each provider's reader only touches its own ecosystem's
   files. (Cursor ≠ GitHub Copilot — a different editor gets its own provider.)
-- **Skip `tmp`.** Directories whose name contains `tmp` are ignored in all scans.
+- **Skip `tmp`.** Directories named exactly `tmp` or ending in `-tmp` are ignored in all scans (`isTmp`).
 - **Cross-platform: Linux + macOS only.** Windows is out of scope.
