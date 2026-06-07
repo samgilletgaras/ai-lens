@@ -84,6 +84,40 @@ export function scanWorkspaces() {
   return _scanCache;
 }
 
+// Each entry in the files map: { filePath, chatPath, mtime }
+//   filePath  — path to the transcript file, or null for chatSessions-only sessions
+//   chatPath  — path to the chatSessions file (may not exist on disk)
+//   mtime     — mtime of whichever source file was used for deduplication
+//
+// chatSessions/<id>.jsonl is VS Code core storage (not Copilot-specific), so we
+// filter chatSessions-only sessions by extensionId before including them.
+function hasCopilotExtensionId(chatPath) {
+  try {
+    const fd = fs.openSync(chatPath, 'r');
+    const buf = Buffer.alloc(4096);
+    const n = fs.readSync(fd, buf, 0, 4096, 0);
+    fs.closeSync(fd);
+    const text = buf.slice(0, n).toString('utf8');
+    for (const line of text.split('\n')) {
+      if (!line.trim()) continue;
+      let ev;
+      try { ev = JSON.parse(line); } catch { continue; }
+      // kind:0 base with requests array, or kind:2 append to requests
+      const requests =
+        (ev.kind === 0 && Array.isArray(ev.v?.requests)) ? ev.v.requests :
+        (ev.kind === 2 && Array.isArray(ev.k) && ev.k[0] === 'requests' && Array.isArray(ev.v)) ? ev.v :
+        null;
+      if (!requests) continue;
+      for (const r of requests) {
+        const extId = r?.agent?.extensionId?.value;
+        if (extId) return extId === 'GitHub.copilot-chat';
+      }
+    }
+    // No extensionId found in the first 4 KB → session is empty or unverifiable; exclude.
+    return false;
+  } catch { return false; }
+}
+
 function scanWorkspacesUncached() {
   const result = new Map();
   for (const wsDir of getCandidateDirs()) {
@@ -92,8 +126,11 @@ function scanWorkspacesUncached() {
     catch { continue; }
     for (const entry of hashes) {
       if (!entry.isDirectory()) continue;
-      const wsJson = path.join(wsDir, entry.name, 'workspace.json');
-      const tDir = path.join(wsDir, entry.name, 'GitHub.copilot-chat', 'transcripts');
+      const hashDir = path.join(wsDir, entry.name);
+      const wsJson = path.join(hashDir, 'workspace.json');
+      const tDir = path.join(hashDir, 'GitHub.copilot-chat', 'transcripts');
+      // Still require transcripts dir — it confirms this is a Copilot workspace,
+      // which is what allows us to trust chatSessions-only entries in the same hash.
       if (!fs.existsSync(wsJson) || !fs.existsSync(tDir)) continue;
       let folderPath;
       try {
@@ -101,19 +138,45 @@ function scanWorkspacesUncached() {
         folderPath = parsed.folder ? decodeWorkspaceUri(parsed.folder) : null;
       } catch { continue; }
       if (!folderPath || isTmp(path.basename(folderPath))) continue;
-      let entries;
-      try { entries = fs.readdirSync(tDir, { withFileTypes: true }); }
-      catch { continue; }
+
+      const chatSessionsDir = path.join(hashDir, 'chatSessions');
+
       if (!result.has(folderPath)) result.set(folderPath, { files: new Map() });
       const proj = result.get(folderPath);
-      for (const f of entries) {
+
+      // Scan transcripts — authoritative for tool calls in legacy format.
+      let tEntries;
+      try { tEntries = fs.readdirSync(tDir, { withFileTypes: true }); }
+      catch { continue; }
+      for (const f of tEntries) {
         if (!f.isFile() || !f.name.endsWith('.jsonl')) continue;
         const sessionId = f.name.slice(0, -6);
         const filePath = path.join(tDir, f.name);
+        const chatPath = path.join(chatSessionsDir, f.name);
         try {
           const { mtimeMs } = fs.statSync(filePath);
           const existing = proj.files.get(sessionId);
-          if (!existing || existing.mtime < mtimeMs) proj.files.set(sessionId, { filePath, mtime: mtimeMs });
+          if (!existing || existing.mtime < mtimeMs) proj.files.set(sessionId, { filePath, chatPath, mtime: mtimeMs });
+        } catch { /* skip */ }
+      }
+
+      // Scan chatSessions for sessions that have no matching transcript.
+      // These are typically newer copilot-agent format sessions where the
+      // transcript only contains session.start and all conversation data lives
+      // in chatSessions. Filter by extensionId to exclude non-Copilot sessions.
+      if (!fs.existsSync(chatSessionsDir)) continue;
+      let csEntries;
+      try { csEntries = fs.readdirSync(chatSessionsDir, { withFileTypes: true }); }
+      catch { continue; }
+      for (const f of csEntries) {
+        if (!f.isFile() || !f.name.endsWith('.jsonl')) continue;
+        const sessionId = f.name.slice(0, -6);
+        if (proj.files.has(sessionId)) continue; // already covered by a transcript
+        const chatPath = path.join(chatSessionsDir, f.name);
+        if (!hasCopilotExtensionId(chatPath)) continue;
+        try {
+          const { mtimeMs } = fs.statSync(chatPath);
+          proj.files.set(sessionId, { filePath: null, chatPath, mtime: mtimeMs });
         } catch { /* skip */ }
       }
     }
@@ -151,13 +214,10 @@ export async function streamJsonl(filePath, onLine) {
 //       user messages  → kind:2 request objects (message.text)
 //       assistant text → kind:1 result patches (result.metadata.toolCallRounds[].response)
 //
-// In both cases we read from chatSessions whenever available so we get a complete
-// picture. We only open chatSessions files whose sessionId matches a transcript we
-// already found, keeping this strictly scoped to VS Code Copilot data.
-function chatSessionPathFor(transcriptPath, sessionId) {
-  // transcriptPath = <hash>/GitHub.copilot-chat/transcripts/<id>.jsonl
-  return path.join(path.dirname(transcriptPath), '..', '..', 'chatSessions', `${sessionId}.jsonl`);
-}
+//   chatSessions-only (no transcript at all):
+//     Same as the newer agent format above — full conversation in chatSessions.
+//
+// In all cases we read from chatSessions whenever available.
 
 // The file is an append-only "observable diff" log:
 //   kind:0 — base snapshot (may have requests: [] when session starts)
@@ -167,9 +227,8 @@ function chatSessionPathFor(transcriptPath, sessionId) {
 //
 // We reconstruct the full conversation by accumulating requests from kind:0/kind:2
 // and then applying kind:1 result patches so toolCallRounds is populated.
-export async function readChatRequests(transcriptPath, sessionId) {
-  const chatPath = chatSessionPathFor(transcriptPath, sessionId);
-  if (!fs.existsSync(chatPath)) return null;
+export async function readChatRequests(chatPath) {
+  if (!chatPath || !fs.existsSync(chatPath)) return null;
   const requests = [];
   const resultPatches = new Map(); // requestIndex → result object
   try {
@@ -196,29 +255,44 @@ export async function readChatRequests(transcriptPath, sessionId) {
 
 // ─── Session parsing ──────────────────────────────────────────────────────────
 
-async function summariseFile(filePath, sessionId, project) {
+async function summariseFile(fileInfo, sessionId, project) {
   let firstTs = null, lastTs = null, preview = '', turnCount = 0;
   const metadata = {};
-  await streamJsonl(filePath, event => {
-    const ts = event.timestamp ? new Date(event.timestamp).getTime() : null;
-    if (ts && isFinite(ts)) { if (!firstTs || ts < firstTs) firstTs = ts; if (!lastTs || ts > lastTs) lastTs = ts; }
-    if (event.type === 'session.start') {
-      if (event.data?.copilotVersion) metadata.copilotVersion = event.data.copilotVersion;
-      if (event.data?.vscodeVersion) metadata.vscodeVersion = event.data.vscodeVersion;
-    }
-    if (event.type === 'user.message') {
-      turnCount++;
-      const content = event.data?.content;
-      if (!preview && content && typeof content === 'string') preview = content.slice(0, 150);
-    }
-  });
-  // Prefer chatSessions for the prompt count + preview: it includes the opening
-  // prompt the transcript drops, so the count and preview reflect the real first message.
-  const reqs = await readChatRequests(filePath, sessionId);
+
+  if (fileInfo.filePath) {
+    // Transcript exists: extract version metadata and timestamps.
+    await streamJsonl(fileInfo.filePath, event => {
+      const ts = event.timestamp ? new Date(event.timestamp).getTime() : null;
+      if (ts && isFinite(ts)) { if (!firstTs || ts < firstTs) firstTs = ts; if (!lastTs || ts > lastTs) lastTs = ts; }
+      if (event.type === 'session.start') {
+        if (event.data?.copilotVersion) metadata.copilotVersion = event.data.copilotVersion;
+        if (event.data?.vscodeVersion) metadata.vscodeVersion = event.data.vscodeVersion;
+      }
+      if (event.type === 'user.message') {
+        turnCount++;
+        const content = event.data?.content;
+        if (!preview && content && typeof content === 'string') preview = content.slice(0, 150);
+      }
+    });
+  }
+
+  // chatSessions is the authoritative source for prompt count, preview, model, and
+  // timestamps — it includes the opening prompt the transcript drops, and is the only
+  // source for chatSessions-only sessions (filePath === null).
+  const reqs = await readChatRequests(fileInfo.chatPath);
   if (reqs && reqs.length) {
     turnCount = reqs.length;
     const first = reqs.find(r => r.text.trim());
     if (first) preview = first.text.slice(0, 150);
+    // Fill in timestamps from chatSessions when transcript didn't provide them.
+    if (!firstTs) {
+      const earliest = reqs.find(r => r.timestamp > 0);
+      if (earliest) firstTs = earliest.timestamp;
+    }
+    if (!lastTs) {
+      const last = [...reqs].reverse().find(r => r.timestamp > 0);
+      if (last) lastTs = last.timestamp;
+    }
     const modelIds = reqs.map(r => r.modelId && (r.modelId.startsWith('copilot/') ? r.modelId.slice(8) : r.modelId)).filter(Boolean);
     if (modelIds.length) {
       const counts = {};
@@ -226,9 +300,10 @@ async function summariseFile(filePath, sessionId, project) {
       metadata.model = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
     }
   }
-  const chatPath = chatSessionPathFor(filePath, sessionId);
-  const sourcePaths = [tildeHome(filePath)];
-  if (fs.existsSync(chatPath)) sourcePaths.push(tildeHome(chatPath));
+
+  const sourcePaths = fileInfo.filePath ? [tildeHome(fileInfo.filePath)] : [];
+  if (fileInfo.chatPath && fs.existsSync(fileInfo.chatPath)) sourcePaths.push(tildeHome(fileInfo.chatPath));
+
   return { id: sessionId, project, firstMessageTs: firstTs ?? 0, lastUpdated: lastTs ?? firstTs ?? 0, preview, turnCount, metadata, sourcePaths };
 }
 
@@ -285,7 +360,7 @@ async function getSessions(project, page, pageSize) {
   if (!info) return { data: [], total: 0 };
   const summaries = [];
   for (const [sessionId, fileInfo] of info.files) {
-    try { summaries.push(await summariseFile(fileInfo.filePath, sessionId, project)); }
+    try { summaries.push(await summariseFile(fileInfo, sessionId, project)); }
     catch { /* skip broken files */ }
   }
   summaries.sort((a, b) => b.lastUpdated - a.lastUpdated);
@@ -302,21 +377,24 @@ async function getMessages(project, session) {
   const fileInfo = info?.files.get(session);
   if (!fileInfo) return [];
 
-  // Assistant turns (with tool calls) come from the transcript.
+  // Assistant turns (with tool calls) come from the transcript in legacy format.
+  // chatSessions-only sessions (filePath === null) have no transcript.
   const assistantMsgs = [];
-  await streamJsonl(fileInfo.filePath, event => {
-    if (event.type === 'assistant.message') { assistantMsgs.push(...normaliseAssistant(event)); }
-  });
+  if (fileInfo.filePath) {
+    await streamJsonl(fileInfo.filePath, event => {
+      if (event.type === 'assistant.message') { assistantMsgs.push(...normaliseAssistant(event)); }
+    });
+  }
 
   // User turns come from chatSessions when available — it's a superset that
   // includes the opening prompt the transcript omits. Fall back to the
-  // transcript's user.message events if the chatSessions file is missing.
+  // transcript's user.message events only if no chatSessions file exists.
   //
-  // For sessions produced by the newer copilot-agent format the transcript only
-  // contains session.start (no assistant.message events); assistant responses
+  // For sessions produced by the newer copilot-agent format, or chatSessions-only
+  // sessions, the transcript has no assistant.message events; assistant responses
   // live in chatSessions' toolCallRounds, so we extract them from there when
   // the transcript-based assistantMsgs list is empty.
-  const reqs = await readChatRequests(fileInfo.filePath, session);
+  const reqs = await readChatRequests(fileInfo.chatPath);
   let userMsgs;
   if (reqs) {
     userMsgs = reqs.filter(r => r.text).map(r => ({ role: 'user', content: r.text, timestamp: r.timestamp }));
@@ -342,13 +420,16 @@ async function getMessages(project, session) {
       }
     }
   } else {
+    // No chatSessions file — fall back to transcript user.message events.
     userMsgs = [];
-    await streamJsonl(fileInfo.filePath, event => {
-      if (event.type === 'user.message') {
-        const content = event.data?.content;
-        if (content) userMsgs.push({ role: 'user', content, timestamp: event.timestamp ? new Date(event.timestamp).getTime() : 0 });
-      }
-    });
+    if (fileInfo.filePath) {
+      await streamJsonl(fileInfo.filePath, event => {
+        if (event.type === 'user.message') {
+          const content = event.data?.content;
+          if (content) userMsgs.push({ role: 'user', content, timestamp: event.timestamp ? new Date(event.timestamp).getTime() : 0 });
+        }
+      });
+    }
   }
 
   // Merge chronologically; on a tie the user prompt precedes its assistant turn.

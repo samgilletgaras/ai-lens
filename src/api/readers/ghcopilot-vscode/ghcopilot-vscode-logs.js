@@ -13,6 +13,7 @@ export async function getLogs(page = 0, pageSize = 10) {
   const collector = makeBoundedLogCollector();
   for (const [project, { files }] of scanWorkspaces()) {
     for (const [sessionId, fileInfo] of files) {
+      if (!fileInfo.filePath) continue; // chatSessions-only sessions have no transcript to stream
       let lineNumber = 0;
       try {
         await streamJsonl(fileInfo.filePath, event => {

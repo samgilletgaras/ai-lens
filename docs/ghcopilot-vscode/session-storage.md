@@ -175,19 +175,29 @@ better tool source**, even though chatSession technically "has tool info."
 
 ---
 
-## Session coverage gap (a separate finding)
+## Session coverage gap (closed)
 
-`chatSessions` also contains **more sessions** than `transcripts`:
+`chatSessions` contains **more sessions** than `transcripts`:
 
 ```
 transcripts:  14 files
-chatSessions: 20 files   →  6 sessions exist ONLY as chatSessions
+chatSessions: 20 files   →  6 sessions existed ONLY as chatSessions
 ```
 
-Because the reader currently **discovers sessions by scanning the transcripts
-folder**, those 6 Copilot conversations are **invisible in AI Lens**. This is a
-latent data-completeness gap independent of the first-message bug. Not yet
-addressed — flagged here for a future decision.
+This gap is now **closed**. After scanning the transcript folder, the reader
+also scans `chatSessions/` within the same workspace hash and adds any session
+IDs not already covered by a transcript. A sync read of the first 4 KB of each
+candidate file checks `agent.extensionId.value === "GitHub.copilot-chat"` to
+exclude non-Copilot sessions — `chatSessions` is VS Code core storage, so other
+chat extensions could write there. Sessions where no `extensionId` is found in
+the first 4 KB (empty or abandoned sessions with no requests) are also excluded.
+
+For these **chatSessions-only** entries (stored with `filePath: null` in the
+scan map), the reader uses the same chatSessions parsing path that already serves
+the newer copilot-agent format: user messages from `kind:2` request objects and
+assistant responses from `kind:1` result patches (`toolCallRounds`). Stats counts
+messages and tool calls from those same fields; the logs view skips them (no
+transcript to stream).
 
 ---
 
@@ -246,12 +256,14 @@ Going sole-chatSessions would *gain* the 6 missing sessions + exit codes, but wo
 *cost* a heavier parser and the loss of `vscodeVersion`. The hybrid picks the right
 authority per slice and degrades gracefully across both format generations.
 
-### A possible future "flipped hybrid" (not implemented)
+### A possible future full "flipped hybrid"
 
-For maximum fidelity: **discover + spine from chatSessions** (catches all 20
-sessions, complete prompts, exit codes/durations) and **enrich tool calls with the
-transcript's raw arguments when a transcript exists**. Strictly more complete than
-today, but more code and more exposure to the chatSession internal format.
+For maximum fidelity: **discover + spine exclusively from chatSessions** (catches
+all sessions, complete prompts, exit codes/durations) and **enrich tool calls with
+the transcript's raw arguments when a transcript exists**. Strictly more complete
+than the current approach, but more code and more exposure to the chatSession
+internal format. The current partial hybrid (transcript-first + chatSessions gap
+fill) already closes the coverage gap with minimal additional complexity.
 
 ---
 

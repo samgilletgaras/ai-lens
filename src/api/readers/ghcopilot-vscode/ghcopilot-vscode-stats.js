@@ -21,23 +21,28 @@ async function getStats(project = null) {
     const { files } = workspaces.get(proj);
     sessions += files.size;
     let projMessages = 0;
-    for (const [sessionId, fileInfo] of files) {
+    for (const [, fileInfo] of files) {
       let sessionLastTs = 0;
+
+      if (fileInfo.filePath) {
+        // Transcript-based session: count message events directly from transcript.
+        try {
+          await streamJsonl(fileInfo.filePath, event => {
+            if (event.type !== 'user.message' && event.type !== 'assistant.message') return;
+            messages++;
+            projMessages++;
+            const ts = event.timestamp ? new Date(event.timestamp).getTime() : null;
+            if (ts && isFinite(ts) && ts > sessionLastTs) sessionLastTs = ts;
+            if (event.type === 'assistant.message' && Array.isArray(event.data?.toolRequests)) {
+              for (const req of event.data.toolRequests) { toolCalls++; const name = req.name ?? 'unknown'; topToolsMap.set(name, (topToolsMap.get(name) ?? 0) + 1); }
+            }
+          });
+        } catch { /* skip */ }
+        if (sessionLastTs > 0) { const day = new Date(sessionLastTs).toISOString().slice(0, 10); activity[day] = (activity[day] ?? 0) + 1; }
+      }
+
       try {
-        await streamJsonl(fileInfo.filePath, event => {
-          if (event.type !== 'user.message' && event.type !== 'assistant.message') return;
-          messages++;
-          projMessages++;
-          const ts = event.timestamp ? new Date(event.timestamp).getTime() : null;
-          if (ts && isFinite(ts) && ts > sessionLastTs) sessionLastTs = ts;
-          if (event.type === 'assistant.message' && Array.isArray(event.data?.toolRequests)) {
-            for (const req of event.data.toolRequests) { toolCalls++; const name = req.name ?? 'unknown'; topToolsMap.set(name, (topToolsMap.get(name) ?? 0) + 1); }
-          }
-        });
-      } catch { /* skip */ }
-      if (sessionLastTs > 0) { const day = new Date(sessionLastTs).toISOString().slice(0, 10); activity[day] = (activity[day] ?? 0) + 1; }
-      try {
-        const reqs = await readChatRequests(fileInfo.filePath, sessionId);
+        const reqs = await readChatRequests(fileInfo.chatPath);
         if (reqs) {
           for (const r of reqs) {
             outputTokens += r.completionTokens;
@@ -45,6 +50,27 @@ async function getStats(project = null) {
             if (!r.modelId) continue;
             const name = r.modelId.startsWith('copilot/') ? r.modelId.slice(8) : r.modelId;
             modelsMap.set(name, (modelsMap.get(name) ?? 0) + 1);
+          }
+
+          // chatSessions-only sessions (no transcript): derive message/tool/activity
+          // counts from chatSessions requests and toolCallRounds.
+          if (!fileInfo.filePath) {
+            let csLastTs = 0;
+            for (const r of reqs) {
+              // One user turn per request.
+              messages++;
+              projMessages++;
+              if (r.timestamp > csLastTs) csLastTs = r.timestamp;
+              for (const round of r.toolCallRounds) {
+                if (round.response?.trim()) { messages++; projMessages++; }
+                for (const tc of round.toolCalls ?? []) {
+                  toolCalls++;
+                  const name = tc.function?.name ?? tc.name ?? 'unknown';
+                  topToolsMap.set(name, (topToolsMap.get(name) ?? 0) + 1);
+                }
+              }
+            }
+            if (csLastTs > 0) { const day = new Date(csLastTs).toISOString().slice(0, 10); activity[day] = (activity[day] ?? 0) + 1; }
           }
         }
       } catch { /* skip */ }

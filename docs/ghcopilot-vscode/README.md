@@ -90,12 +90,21 @@ hash dir is only counted if it has both a `workspace.json` and a
 are skipped. If the same session id appears under multiple hashes, the newest mtime
 wins.
 
+Within each qualifying hash, after scanning the `transcripts/` folder the reader
+also scans `chatSessions/` for any session IDs not already found in transcripts.
+These **chatSessions-only** sessions are validated by a sync extensionId check
+(`agent.extensionId.value === "GitHub.copilot-chat"`) before being included, since
+`chatSessions` is VS Code core storage that other extensions could write to.
+Sessions where no extensionId can be confirmed in the first 4 KB (empty or
+abandoned sessions with no requests) are excluded.
+
 ---
 
 ## Where each feature's data comes from
 
 ### Sessions, messages, logs — `ghcopilot-vscode-sessions.js` / `-logs.js`
-Sessions are discovered from `transcripts/`. Two producer formats exist:
+Sessions are discovered from `transcripts/`, supplemented by `chatSessions/` for
+sessions that have no transcript file. Three producer formats exist:
 
 - **Legacy** — transcript has `user.message` / `assistant.message` events; user
   turns are supplemented from the sibling `chatSessions/<id>.jsonl` (which includes
@@ -104,6 +113,9 @@ Sessions are discovered from `transcripts/`. Two producer formats exist:
   full conversation (user prompts + assistant responses) lives in `chatSessions`,
   sourced from `kind:2` request appends and `kind:1` result patches
   (`result.metadata.toolCallRounds`).
+- **chatSessions-only** — no transcript file at all; the full conversation is read
+  exclusively from `chatSessions/<id>.jsonl` using the same copilot-agent parsing
+  path. These sessions are identified by extensionId filter during discovery.
 
 Both flows merge into the same normalized message contract and sort chronologically.
 See the [detail page](session-storage.md) for the field-by-field breakdown. Logs
