@@ -110,6 +110,7 @@ export function isWithin(root, target) {
 }
 
 export function parseFrontmatter(content) {
+  if (typeof content !== 'string') return { meta: {}, body: '' };
   const lines = content.split('\n');
   if (!lines[0] || lines[0].trim() !== '---') return { meta: {}, body: content };
   let endIdx = -1;
@@ -122,7 +123,7 @@ export function parseFrontmatter(content) {
     const m = line.match(/^([\w-]+)\s*:\s*(.*)/);
     if (m) {
       let val = m[2].trim();
-      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      if (val.length >= 2 && ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'")))) {
         val = val.slice(1, -1);
       }
       meta[m[1]] = val;
@@ -148,9 +149,11 @@ export function dedupeBySourcePath(items) {
   for (const item of items) {
     const key = item.sourcePath;
     if (key && idx.has(key)) {
-      out[idx.get(key)].providers.push(...item.providers);
+      const existing = out[idx.get(key)];
+      existing.providers = [...existing.providers, ...item.providers];
     } else {
-      const i = out.push({ ...item }) - 1;
+      const copy = { ...item, providers: item.providers ? [...item.providers] : [] };
+      const i = out.push(copy) - 1;
       if (key) idx.set(key, i);
     }
   }

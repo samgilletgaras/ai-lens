@@ -145,6 +145,12 @@ counts are not stored in the transcript or chatSessions files (only aggregate to
 exist in `state.vscdb` as SQLite, which is out of scope under the Node-core-only
 constraint). Hook fields are also reported empty.
 
+> **Known gap:** sessions discovered exclusively from `chatSessions/` (no transcript
+> file) are counted in the session total but contribute **0 messages and 0 tool calls**
+> to aggregate stats, because the stats reader only streams transcript files. This
+> produces a slight undercount for workspaces where the newer copilot-agent format
+> stores all activity in `chatSessions` only.
+
 ### Skills — `ghcopilot-vscode-skills.js`
 Follows the [agentskills.io](https://agentskills.io) open standard that VS Code
 Copilot implements. Two scopes are merged, deduped by slug (first found wins):

@@ -8,6 +8,7 @@ memory, plans) comes from.
 Verified against a real `~/.claude/` (Linux). Paths are derived in code from
 `os.homedir()` — nothing is hardcoded. The reader implementations live in
 `src/api/readers/claude/` and the path constants in `src/api/utils.js`.
+Endpoint/architecture overview: `docs/README.md`.
 
 ---
 
@@ -150,13 +151,18 @@ from YAML frontmatter (or first non-heading line). Usage: scans all session JSON
 ### Agents — `claude-agents.js`
 **Recursively** scans `~/.claude/agents/**/*.md`. Each `.md` is an agent; `name`/
 `description` from frontmatter (slug + first line fallback). `lastUsed` = file mtime
-(no usage scan). First slug wins on duplicates.
+(no usage scan). First slug wins on duplicates (by slug derived from filename, not
+full path — so `agents/foo.md` and `agents/sub/foo.md` collide on slug `foo`; the
+shallower one wins because directory entries are processed first).
 
 ### MCP servers — `claude-mcps.js`
 Configs: `~/.claude/plugins/.../external_plugins/<dir>/.mcp.json` (`mcpServers`).
-Usage: scans all session JSONL for `tool_use` blocks named `mcp__<server>__<tool>`,
-counting per server + per tool. Auth status from `~/.claude/mcp-needs-auth-cache.json`.
-Servers prefixed `claude_ai_` are typed `cloud`, others `plugin`.
+Each `.mcp.json` can use either the flat `{ mcpServers: { id: { command, args } } }`
+schema or the nested `{ plugins: [{ mcp: { … } }] }` plugin-manifest schema; the reader
+handles both and merges them under a unified server id. Usage: scans all session JSONL
+for `tool_use` blocks named `mcp__<server>__<tool>`, counting per server + per tool.
+Auth status from `~/.claude/mcp-needs-auth-cache.json`. Servers prefixed `claude_ai_`
+are typed `cloud`, others `plugin`.
 
 ### Memory — `claude-memory.js`
 Reads `~/.claude/projects/<proj>/memory/*.md` (per project). Parses frontmatter
@@ -179,8 +185,8 @@ Two patterns (see top-level `CLAUDE.md` "Architecture"):
 
 - **mtime-keyed** — `claude-sessions.js` and per-project stats re-read only when the
   relevant files change (cache key = file names + mtimes). Best for hot, stable data.
-- **60s TTL** (`CACHE_TTL`) — logs, global stats, skill/MCP usage scans, memory.
-  Simpler; tolerates slight staleness on expensive full scans.
+- **60s TTL** (`CACHE_TTL`) — logs, global stats, skill/MCP usage scans, memory,
+  agents. Simpler; tolerates slight staleness on expensive full scans.
 
 ---
 

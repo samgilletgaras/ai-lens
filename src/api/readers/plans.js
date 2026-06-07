@@ -16,8 +16,10 @@ export async function getPlans(provider, filename = null, from = null) {
     if (filename) {
       if (from) return (await registry.get(from)?.getPlans(filename)) ?? [];
       for (const [, impl] of registry) {
-        const r = await impl.getPlans(filename);
-        if (r.length) return r;
+        try {
+          const r = await impl.getPlans(filename);
+          if (r.length) return r;
+        } catch { /* skip */ }
       }
       return [];
     }

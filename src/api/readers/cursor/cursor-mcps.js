@@ -55,7 +55,7 @@ async function getMcps(serverId = null) {
       toolCount: 0,
       totalCalls: 0,
       lastUsed: null,
-      source: tildeHome(globalMcpPath),
+      source: info.globalConfig ? tildeHome(globalMcpPath) : null,
       ...(serverId ? { tools: [] } : {}),
     };
     result.push(entry);

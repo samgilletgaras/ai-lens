@@ -37,7 +37,7 @@ API; the frontend is a React SPA that renders the API responses and is fully
 ```
 ┌─────────────────────────────┐        ┌──────────────────────────────┐
 │  src/web  (React + Vite)    │  HTTP  │  src/api  (Node, plain JS)   │
-│  - 8 views, hash routing    │ ─────► │  - 12 endpoints              │
+│  - 8 views, hash routing    │ ─────► │  - 13 endpoints              │
 │  - provider-agnostic UI     │ /api/* │  - PROVIDERS registry        │
 │  - reads /api/config only   │ ◄───── │  - readers self-register     │
 └─────────────────────────────┘        └──────────────┬───────────────┘
@@ -53,14 +53,18 @@ Node core only (`http`, `fs`, `readline`, `os`, `path`).
 - **`index.js`** — HTTP server + route handlers; holds the `PROVIDERS` registry
   (`{ id: providerModule }`). `/api/config` builds the provider list and
   **prepends a synthesized `all` ("All Providers") meta-provider**.
+- **`config.js`** — exports the `config` object (currently `{ version }`), read once
+  at startup from `package.json`. Wrapped in a `try/catch` so a missing or malformed
+  `package.json` falls back to `version: 'unknown'` without crashing.
 - **`utils.js`** — path constants (`CLAUDE_DIR`, `PROJECTS_DIR`, …), `CACHE_TTL`,
-  `MODEL_PRICING`, `isTmp`, `parseFrontmatter`, `tildeHome` (collapses
-  `os.homedir()` to `~` for display paths), and the `all`-provider id helpers
-  (`packId`/`unpackId`).
+  `LOGS_CAP` (upper bound for log fan-out), `MODEL_PRICING`, `isTmp`,
+  `parseFrontmatter`, `tildeHome` (collapses `os.homedir()` to `~` for display
+  paths), `dedupeBySourcePath` (merges list items sharing a `sourcePath`), and the
+  `all`-provider id helpers (`packId`/`unpackId`).
 - **`providers/<id>.js`** — declares a provider's `name`, `capabilities`,
   `isAvailable()` (+ optional `icon`), and imports its `readers/<id>/*.js` modules.
 - **`readers/<topic>.js`** — a **registry hub** per topic (sessions, logs, stats,
-  skills, agents, mcps, memory). Each provider's reader **self-registers** its
+  skills, agents, mcps, memory, plans). Each provider's reader **self-registers** its
   implementation via `register('<id>', { … })`. The hub dispatches by provider id
   (and fans out for the `all` meta-provider).
 - **`readers/<id>/*.js`** — the per-provider implementations that actually touch
@@ -69,8 +73,9 @@ Node core only (`http`, `fs`, `readline`, `os`, `path`).
 **API contract:** every endpoint returns HTTP 200 with
 `{ data: …, error: null | string }`. Errors go in `error`, never thrown.
 
-**Demo mode:** every endpoint accepts `?demo=true` and returns static data from
+**Demo mode:** most data endpoints accept `?demo=true` and return static data from
 `demo-data.js`, so the app is fully explorable with nothing installed.
+(`/api/health` and `/api/config` always return live data regardless.)
 
 **Provider dispatch:** data endpoints accept `?provider=<id>`; omitting it uses the
 first registered provider. `?provider=all` aggregates across every provider
@@ -97,7 +102,7 @@ populate it too; cloud MCPs have no file). The frontend gates all disclosures on
 `showSourcePaths` user preference (`localStorage` key `lens-show-source-paths`,
 default off), toggled in Settings.
 
-#### The 12 endpoints
+#### The 13 endpoints
 
 | Endpoint | Returns |
 |----------|---------|
@@ -113,6 +118,7 @@ default off), toggled in Settings.
 | `GET /api/memory[?project=&file=]` | memory files |
 | `GET /api/stats[?project=]` | aggregate or per-project token/tool/activity stats |
 | `GET /api/plans[?file=]` | plan markdown files (provider-agnostic) |
+| `POST /api/settings` | persists user settings (JSON body `{ patch: { key: value } }`); whitelisted keys only |
 
 ### Normalized message contract
 
@@ -149,7 +155,7 @@ All parsing logic (block flattening, XML tag extraction, vendor-specific envelop
 
 1. Create `src/api/providers/x.js` (`name`, `capabilities`, `isAvailable`, optional `icon`).
 2. Create `src/api/readers/x/*.js` that `register('x', …)` for each topic you support.
-3. Add the module to the `PROVIDERS` map in `index.js`.
+3. Add the module to the `PROVIDERS` map in `index.js` **and** `import` the provider file so its readers self-register.
 4. (Optional) Add a badge color token in `index.css`.
 5. Write a `docs/x/…` note describing where its data lives on disk.
 

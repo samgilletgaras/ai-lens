@@ -30,17 +30,18 @@ function mergeGlobalStats(parts) {
   const addMap = (dst, src) => { for (const [k, v] of Object.entries(src ?? {})) dst[k] = (dst[k] || 0) + v; };
   for (const { providerId, stats: s } of parts) {
     if (!s) continue;
-    acc.totals.sessions += s.totals.sessions; acc.totals.messages += s.totals.messages; acc.totals.toolCalls += s.totals.toolCalls;
-    if (s.totals.projects) acc.totals.projects = (acc.totals.projects ?? 0) + s.totals.projects;
-    acc.tokens.input += s.tokens.input; acc.tokens.output += s.tokens.output;
-    acc.tokens.cacheRead += s.tokens.cacheRead; acc.tokens.cacheCreation += s.tokens.cacheCreation;
-    if (s.tokens.inputEstimated) { acc.tokens.inputEstimated = true; (acc.tokens.inputEstimatedProviders ??= []).push(providerId); }
-    if (s.tokens.outputEstimated) { acc.tokens.outputEstimated = true; (acc.tokens.outputEstimatedProviders ??= []).push(providerId); }
+    const { totals = {}, tokens = {}, hooks = {} } = s;
+    acc.totals.sessions += totals.sessions ?? 0; acc.totals.messages += totals.messages ?? 0; acc.totals.toolCalls += totals.toolCalls ?? 0;
+    if (totals.projects) acc.totals.projects = (acc.totals.projects ?? 0) + totals.projects;
+    acc.tokens.input += tokens.input ?? 0; acc.tokens.output += tokens.output ?? 0;
+    acc.tokens.cacheRead += tokens.cacheRead ?? 0; acc.tokens.cacheCreation += tokens.cacheCreation ?? 0;
+    if (tokens.inputEstimated) { acc.tokens.inputEstimated = true; (acc.tokens.inputEstimatedProviders ??= []).push(providerId); }
+    if (tokens.outputEstimated) { acc.tokens.outputEstimated = true; (acc.tokens.outputEstimatedProviders ??= []).push(providerId); }
     addMap(acc.stopReasons, s.stopReasons); addMap(acc.activity, s.activity);
     for (const [k, v] of Object.entries(s.models ?? {})) { const key = `${providerId}/${k}`; acc.models[key] = (acc.models[key] || 0) + v; }
-    acc.hooks.success += s.hooks.success; acc.hooks.failure += s.hooks.failure;
-    if (s.hooks.avgDurationMs && s.hooks.success) { hookDurTotal += s.hooks.avgDurationMs * s.hooks.success; hookDurCount += s.hooks.success; }
-    acc.estimatedCostUsd += s.estimatedCostUsd;
+    acc.hooks.success += hooks.success ?? 0; acc.hooks.failure += hooks.failure ?? 0;
+    if (hooks.avgDurationMs && hooks.success) { hookDurTotal += hooks.avgDurationMs * hooks.success; hookDurCount += hooks.success; }
+    acc.estimatedCostUsd += s.estimatedCostUsd ?? 0;
     acc.estimatedCostByProvider[providerId] = Math.round((s.estimatedCostUsd || 0) * 100) / 100;
     for (const tp of s.topProjects ?? []) acc.topProjects.push({ ...tp, id: packId(providerId, tp.id), provider: providerId });
     for (const { name, count } of s.topTools ?? []) { const key = `${providerId}/${name}`; topToolsMap[key] = (topToolsMap[key] || 0) + count; }

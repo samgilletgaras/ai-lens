@@ -2,11 +2,14 @@
   "name": "ai-lens",
   "version": "1.2.0",
   "description": "AI Lens",
-  "main": "index.js",
   "scripts": {
     "dev:api": "npm --workspace=src/api run dev",
     "dev:web": "npm --workspace=src/web run dev",
-    "dev": "concurrently --raw \"npm run dev:api\" \"npm run dev:web\""
+    "dev": "concurrently --kill-others-on-fail --names \"api,web\" \"npm run dev:api\" \"npm run dev:web\"",
+    "build": "npm --workspace=src/web run build"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "workspaces": [
     "src/api",

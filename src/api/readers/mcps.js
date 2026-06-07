@@ -13,8 +13,10 @@ export async function getMcps(provider, id = null, from = null) {
     if (id) {
       if (from) return (await registry.get(from)?.getMcps(id)) ?? null;
       for (const [, impl] of registry) {
-        const d = await impl.getMcps(id);
-        if (d) return d;
+        try {
+          const d = await impl.getMcps(id);
+          if (d) return d;
+        } catch { /* skip */ }
       }
       return null;
     }

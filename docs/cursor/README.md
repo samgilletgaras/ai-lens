@@ -96,11 +96,11 @@ This is a data-availability constraint, not a reader limitation. The resulting t
 | Projects | `~/.cursor/projects/` directory listing | Slugs decoded via workspaceStorage cross-reference |
 | Sessions | `agent-transcripts/{uuid}/{uuid}.jsonl` | One file per agent run |
 | Messages | Same JSONL, streamed line by line | Flattened to normalized event contract; XML wrappers stripped |
-| Stats | Derived from transcript JSONL | Activity heatmap uses last `<timestamp>` per session (mtime fallback); no token counts (not in JSONL) |
+| Stats | Derived from transcript JSONL | Activity heatmap uses last `<timestamp>` per session (mtime fallback); Cursor JSONL contains no token counts, so all token/cost fields are 0 |
 | Skills | `skills-cursor/{name}/SKILL.md` + `~/.agents/skills/{name}/SKILL.md` | Cursor-specific first; global deduped by slug |
-| Agents | `~/.claude/agents/*.md` + `plugins/{cache,local}/**/agents/*.md` | Global Claude agents + plugin-bundled agents |
-| Plans | `plans/*.plan.md` | YAML frontmatter with `name`, `overview`, `todos` |
-| MCPs | `projects/*/mcps/*/SERVER_METADATA.json` | Also reads `mcp.json` for global config |
+| Agents | `~/.claude/agents/**/*.md` + `plugins/{cache,local}/**/agents/*.md` | Global Claude agents (recursive) + plugin-bundled agents |
+| Plans | `plans/*.md` | YAML frontmatter with `name`, `overview`, `todos`; all `.md` files included, not just `.plan.md` |
+| MCPs | `projects/*/mcps/*/SERVER_METADATA.json` + `mcp.json` | `source` is set to `~/.cursor/mcp.json` only for servers that appear in the global config; project-only servers have `source: null` |
 
 ## Project path recovery
 

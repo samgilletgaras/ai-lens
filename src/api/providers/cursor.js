@@ -10,7 +10,7 @@ import '../readers/cursor/cursor-agents.js';
 export const name = 'Cursor';
 export const icon = 'MousePointer2';
 export const capabilities = {
-  hasHistory: true, hasStats: true, hasLogs: true,
+  hasHistory: true, hasStats: true, hasLogs: false,
   hasSkills: true, hasAgents: true, hasMcps: true,
   hasMemory: false, hasPlans: true,
 };

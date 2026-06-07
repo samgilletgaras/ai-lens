@@ -43,13 +43,14 @@ const server = http.createServer(async (req, res) => {
   if (origin && ALLOWED_ORIGINS.has(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   }
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
-  const q = parseQuery(req.url);
+  let q;
+  try { q = parseQuery(req.url); } catch { q = parseQuery('/'); }
   const ok = (payload) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: null, ...payload }));
@@ -61,10 +62,18 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'POST' && q.pathname === '/api/settings') {
     const chunks = [];
-    req.on('data', c => chunks.push(c));
+    let bodySize = 0;
+    req.on('error', () => {});
+    req.on('data', c => {
+      bodySize += c.length;
+      if (bodySize > 65536) { req.destroy(); return; }
+      chunks.push(c);
+    });
     req.on('end', () => {
       let patch = {};
       try { patch = JSON.parse(Buffer.concat(chunks).toString()); } catch { /* ignore malformed body */ }
+      const ALLOWED_KEYS = new Set(['includeVscodeInsiders']);
+      patch = Object.fromEntries(Object.entries(patch).filter(([k]) => ALLOWED_KEYS.has(k)));
       updateServerSettings(patch);
       clearGhCopilotCaches();
       ok({ data: null });
@@ -78,7 +87,9 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  const providerName = q.get('provider') ?? DEFAULT_PROVIDER;
+  const rawProvider = q.get('provider') ?? DEFAULT_PROVIDER;
+  const providerName = (rawProvider === ALL_PROVIDER || Object.hasOwn(PROVIDERS, rawProvider))
+    ? rawProvider : DEFAULT_PROVIDER;
 
   if (q.pathname === '/api/health') {
     ok({ data: { ok: true } });
@@ -88,12 +99,14 @@ const server = http.createServer(async (req, res) => {
   if (q.pathname === '/api/config') {
     const providers = [];
     for (const [id, p] of Object.entries(PROVIDERS)) {
-      const extras = p.extras ? await p.extras() : {};
-      providers.push({ id, name: p.name, icon: p.icon ?? null, capabilities: p.capabilities, available: await p.isAvailable(), ...extras });
+      try {
+        const extras = p.extras ? await p.extras() : {};
+        providers.push({ id, name: p.name, icon: p.icon ?? null, capabilities: p.capabilities, available: await p.isAvailable(), ...extras });
+      } catch { /* skip unavailable/broken provider rather than failing the whole config */ }
     }
-    // Synthesize the "All Providers" meta-provider: union of every provider's
-    // capabilities, available if any provider is. Listed first and the default.
-    const capKeys = Object.keys(providers[0]?.capabilities ?? {});
+    // Synthesize the "All Providers" meta-provider: union of ALL providers'
+    // capability keys so a new provider's capabilities aren't silently dropped.
+    const capKeys = [...new Set(providers.flatMap(p => Object.keys(p.capabilities ?? {})))];
     const allEntry = {
       id: ALL_PROVIDER,
       name: 'All Providers',
@@ -119,8 +132,8 @@ const server = http.createServer(async (req, res) => {
       ok({ data: s, total: s.length, page: 0, pageSize: s.length });
       return;
     }
-    const page = Math.max(0, parseInt(q.get('page', '0')));
-    const pageSize = Math.max(1, parseInt(q.get('pageSize', '20')));
+    const page = Math.max(0, parseInt(q.get('page', '0')) || 0);
+    const pageSize = Math.max(1, parseInt(q.get('pageSize', '20')) || 20);
     try {
       const { data, total } = await sessions.getSessions(providerName, project, page, pageSize);
       ok({ data, total, page, pageSize });
@@ -138,8 +151,8 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (q.pathname === '/api/logs') {
-    const page = Math.max(0, parseInt(q.get('page', '0')));
-    const pageSize = Math.max(1, parseInt(q.get('pageSize', '10')));
+    const page = Math.max(0, parseInt(q.get('page', '0')) || 0);
+    const pageSize = Math.max(1, parseInt(q.get('pageSize', '10')) || 10);
     if (q.get('demo')) {
       const all = demo.DEMO_LOGS.data;
       ok({ data: all.slice(page * pageSize, (page + 1) * pageSize), total: demo.DEMO_LOGS.total, page, pageSize });
@@ -175,7 +188,7 @@ const server = http.createServer(async (req, res) => {
     const slug = q.get('slug', null);
     if (slug) {
       if (q.get('demo')) { const d = demo.DEMO_SKILL_DETAIL[slug]; d ? ok({ data: d }) : err('Demo skill not found'); return; }
-      try { ok({ data: skills.getSkillDetail(providerName, slug, q.get('from', null)) }); } catch(e) { err(e.message); }
+      try { ok({ data: await skills.getSkillDetail(providerName, slug, q.get('from', null)) }); } catch(e) { err(e.message); }
       return;
     }
     if (q.get('demo')) { ok({ data: demo.DEMO_SKILLS }); return; }
@@ -187,7 +200,7 @@ const server = http.createServer(async (req, res) => {
     const slug = q.get('slug', null);
     if (slug) {
       if (q.get('demo')) { const d = demo.DEMO_AGENT_DETAIL?.[slug]; d ? ok({ data: d }) : err('Demo agent not found'); return; }
-      try { ok({ data: agents.getAgentDetail(providerName, slug, q.get('from', null)) }); } catch(e) { err(e.message); }
+      try { ok({ data: await agents.getAgentDetail(providerName, slug, q.get('from', null)) }); } catch(e) { err(e.message); }
       return;
     }
     if (q.get('demo')) { ok({ data: demo.DEMO_AGENTS ?? [] }); return; }
@@ -254,12 +267,14 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log(`AI Lens CLI backend running on http://127.0.0.1:${PORT}`);
   // Warm up caches for every available provider on startup
   setImmediate(async () => {
-    for (const [id, p] of Object.entries(PROVIDERS)) {
-      if (!(await p.isAvailable())) continue;
-      stats.getStats(id).catch(() => {});
-      skills.getSkills(id).catch(() => {});
-      mcps.getMcps(id).catch(() => {});
-      logs.getLogs(id).catch(() => {});
-    }
+    try {
+      for (const [id, p] of Object.entries(PROVIDERS)) {
+        if (!(await p.isAvailable())) continue;
+        stats.getStats(id).catch(() => {});
+        skills.getSkills(id).catch(() => {});
+        mcps.getMcps(id).catch(() => {});
+        logs.getLogs(id).catch(() => {});
+      }
+    } catch { /* swallow warmup errors; server is already listening */ }
   });
 });

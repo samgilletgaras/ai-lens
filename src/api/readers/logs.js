@@ -1,4 +1,4 @@
-import { ALL_PROVIDER, packId } from '../utils.js';
+import { ALL_PROVIDER, packId, LOGS_CAP } from '../utils.js';
 
 const registry = new Map();
 
@@ -16,7 +16,7 @@ export async function getLogs(provider, page = 0, pageSize = 10) {
       try {
         // Each impl returns its most-recent (bounded) entries plus the true
         // scanned count; merge the entries for ordering but keep `total` honest.
-        const r = await impl.getLogs(0, Number.MAX_SAFE_INTEGER);
+        const r = await impl.getLogs(0, LOGS_CAP);
         total += r.total ?? r.data.length;
         for (const e of r.data) all.push({ ...e, project: packId(id, e.project) });
       } catch { /* skip */ }
