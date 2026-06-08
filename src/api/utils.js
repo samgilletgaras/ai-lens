@@ -15,6 +15,11 @@ export const CURSOR_SKILLS_DIR   = path.join(CURSOR_DATA_DIR, 'skills-cursor');
 export const CURSOR_PLUGINS_DIR  = path.join(CURSOR_DATA_DIR, 'plugins');
 export const AGENTS_SKILLS_DIR   = path.join(os.homedir(), '.agents', 'skills');
 
+export const PI_AGENT_DIR    = path.join(os.homedir(), '.pi', 'agent');
+export const PI_SESSIONS_DIR = path.join(PI_AGENT_DIR, 'sessions');
+export const PI_SKILLS_DIR   = path.join(PI_AGENT_DIR, 'skills');
+export const PI_AGENTS_DIR   = path.join(PI_AGENT_DIR, 'agents');
+
 export function getCursorAppDirs() {
   const home = os.homedir();
   const platform = os.platform();

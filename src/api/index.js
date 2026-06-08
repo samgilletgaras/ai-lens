@@ -8,6 +8,7 @@ import * as demo from './demo-data.js';
 import * as claudeProvider from './providers/claude.js';
 import * as ghcopilotProvider from './providers/ghcopilot-vscode.js';
 import * as cursorProvider from './providers/cursor.js';
+import * as piProvider from './providers/pi.js';
 
 import * as sessions from './readers/sessions.js';
 import * as stats from './readers/stats.js';
@@ -23,6 +24,7 @@ const PROVIDERS = {
   claude: claudeProvider,
   'ghcopilot-vscode': ghcopilotProvider,
   cursor: cursorProvider,
+  pi: piProvider,
 };
 
 // Default provider when the request omits ?provider= — first registered one.

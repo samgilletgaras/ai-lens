@@ -236,6 +236,7 @@ Pi produces the second richest timeline after Claude Code:
 | Messages | Same JSONL, tree-traversed from active leaf to root | Flattened to normalized event contract; compaction/branch entries emitted as `system` |
 | Stats | Derived from `AssistantMessage.usage` per session | Token totals, cache hit rate, cost, model distribution all available from JSONL |
 | Logs | All session JSONL entries streamed as raw `{ project, session, lineNumber, raw }` | Same pattern as Claude Code |
+| Agents | `~/.pi/agent/agents/*.md` | Individual agent definition files; same Markdown+frontmatter format as Claude Code agents |
 | Skills | `~/.pi/agent/skills/*/SKILL.md` + `~/.agents/skills/*/SKILL.md` | Global pi-specific first; agentskills.io global standard second; deduped by slug |
 | MCPs | `~/.pi/agent/mcp.json` + `~/.pi/agent/mcp-cache.json` | Present only when a community MCP extension is installed; `isAvailable` for `hasMcps` should check file existence |
 
@@ -258,10 +259,10 @@ without running it.
 | `hasStats` | ✓ | Token usage and cost stored per `AssistantMessage` |
 | `hasLogs` | ✓ | Raw JSONL streaming (same pattern as Claude Code) |
 | `hasSkills` | ✓ | `~/.pi/agent/skills/` + `~/.agents/skills/` |
-| `hasAgents` | ✗ | Pi uses TypeScript extensions, not agent Markdown files |
-| `hasMcps` | ✓ | `mcp.json` when a community extension is installed; capability gated on file existence |
+| `hasAgents` | ✓ | `~/.pi/agent/agents/*.md` — individual agent definition files (same Markdown+frontmatter convention as Claude Code) |
+| `hasMcps` | ✓ | `mcp.json` when `pi-mcp-adapter` (or similar community extension) is installed; capability gated on file existence |
 | `hasMemory` | ✗ | No dedicated memory system |
-| `hasPlans` | ✗ | No dedicated plans directory |
+| `hasPlans` | ✗ | Pi has no native plan mode; community extensions (`pi-plan-mode`, `pi-plan`) store `.plan.md` files inside session dirs — not a dedicated plans folder |
 
 ---
 
@@ -270,10 +271,13 @@ without running it.
 - **Tree structure:** A session with branching may have multiple leaf candidates.
   The reader picks the leaf with the latest `timestamp`; other branches are
   silently dropped. This matches how Pi itself resumes sessions (most-recent leaf).
-- **MCP is extension-provided:** The `mcp.json` config schema varies between
-  community extensions. The two most common formats both use a top-level
-  `mcpServers` object keyed by server name with `command`/`args` for stdio and
-  `url` for HTTP. The reader should tolerate both and skip unknown keys.
+- **MCP is extension-provided:** Pi has no built-in MCP support. The dominant
+  community extension is `pi-mcp-adapter` (99k downloads/month). Its config at
+  `~/.pi/agent/mcp.json` uses a top-level `mcpServers` object keyed by server
+  name with `command`/`args` for stdio and `url` for HTTP transports. An
+  optional `directTools` array lists tools promoted to first-class Pi tools;
+  `env` may contain environment variable mappings. The reader uses only
+  `command`, `args`, and `url` for display and skips the rest.
 - **Session format versions:** Current is v3. Versions 1 (linear) and 2 (tree
   without v3 role rename) are auto-migrated by Pi on load but the reader may
   encounter old files. Tolerate unknown entry `type` values and malformed lines

@@ -1,8 +1,8 @@
-import { Sparkles, GitBranch, Boxes, Bot, MousePointer2, type LucideIcon } from 'lucide-react';
+import { Sparkles, GitBranch, Boxes, Bot, MousePointer2, Terminal, type LucideIcon } from 'lucide-react';
 
 // Generic icon-name → lucide component map (keyed by icon name, NOT provider id).
 // Providers declare their icon name in /api/config; this resolves it.
-const ICONS: Record<string, LucideIcon> = { Sparkles, GitBranch, Boxes, Bot, MousePointer2 };
+const ICONS: Record<string, LucideIcon> = { Sparkles, GitBranch, Boxes, Bot, MousePointer2, Terminal };
 export function iconFor(name?: string | null): LucideIcon {
   return (name && ICONS[name]) || Bot;
 }

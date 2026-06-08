@@ -100,3 +100,14 @@ data-on-disk layout, update the affected docs:**
 
 Stale docs cause incorrect code generation. If a change makes any statement in
 `docs/` or `CLAUDE.md` wrong, fixing it is part of finishing the change.
+
+## Provider docs are working notes, not specifications
+
+The per-provider docs in `docs/<provider>/` are built up incrementally as
+features are discovered — they are **not authoritative specifications**. When
+implementing a provider feature or debugging unexpected behaviour, **always
+verify against the provider's official documentation or source** (GitHub repo,
+npm registry, official website) rather than trusting the local docs blindly.
+Use web search proactively when something in the local docs seems incomplete,
+contradicts observed behaviour, or has not been verified against a real
+installation.
