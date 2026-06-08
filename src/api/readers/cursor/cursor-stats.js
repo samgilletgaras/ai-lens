@@ -1,10 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
-import { CURSOR_PROJECTS_DIR, CACHE_TTL, isTmp } from '../../utils.js';
+import { CURSOR_PROJECTS_DIR, CACHE_TTL, isTmp, MONTH_NAMES } from '../../utils.js';
 import { register } from '../stats.js';
-
-const MONTH_IDX = { Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11 };
 
 // Extract the date portion from a Cursor <timestamp> value, expressed in the
 // user's local timezone as written (e.g. "Sunday, Jun 7, 2026, 9:46 PM (UTC+2)").
@@ -13,8 +11,8 @@ function timestampToDay(text) {
   const m = text.match(/<timestamp>([\s\S]*?)<\/timestamp>/);
   if (!m) return null;
   const dm = m[1].match(/(\w{3})\s+(\d{1,2}),\s+(\d{4})/);
-  if (!dm || !(dm[1] in MONTH_IDX)) return null;
-  return new Date(Date.UTC(parseInt(dm[3], 10), MONTH_IDX[dm[1]], parseInt(dm[2], 10)))
+  if (!dm || !(dm[1] in MONTH_NAMES)) return null;
+  return new Date(Date.UTC(parseInt(dm[3], 10), MONTH_NAMES[dm[1]], parseInt(dm[2], 10)))
     .toISOString().slice(0, 10);
 }
 

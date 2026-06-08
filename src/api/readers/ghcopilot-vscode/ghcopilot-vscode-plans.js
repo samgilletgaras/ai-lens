@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { parseFrontmatter, CACHE_TTL, isTmp, tildeHome } from '../../utils.js';
-import { getCandidateDirs, getUserDirs, registerCacheClear } from './ghcopilot-vscode-sessions.js';
+import { getCandidateDirs, getUserDirs, registerCacheClear, decodeWorkspaceUri } from './ghcopilot-vscode-sessions.js';
 import { register } from '../plans.js';
 
 // Copilot has no dedicated plans store like Claude's ~/.claude/plans/. Instead the
@@ -16,10 +16,6 @@ const PLAN_FILE = /^plan.*\.md$/i;
 let _cache = null;
 let _cacheTs = 0;
 registerCacheClear(() => { _cache = null; _cacheTs = 0; });
-
-function decodeWorkspaceUri(uri) {
-  try { return new URL(uri).pathname; } catch { return null; }
-}
 
 // VS Code keys per-session memory dirs by the base64-encoded session id; decode it
 // back for a friendly, stable filename (fall back to the raw dir name on failure).

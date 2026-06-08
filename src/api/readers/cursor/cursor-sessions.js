@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import readline from 'readline';
-import { CURSOR_PROJECTS_DIR, CACHE_TTL, isTmp, tildeHome, isWithin, getCursorAppDirs } from '../../utils.js';
+import { CURSOR_PROJECTS_DIR, CACHE_TTL, isTmp, tildeHome, isWithin, getCursorAppDirs, MONTH_NAMES } from '../../utils.js';
 import { register } from '../sessions.js';
 
 // ─── Workspace path recovery ──────────────────────────────────────────────────
@@ -50,8 +50,6 @@ function slugToPath(slug, slugMap) {
 
 // ─── Timestamp parsing ────────────────────────────────────────────────────────
 
-const _MONTHS = { Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11 };
-
 // Parse a <timestamp> tag from raw Cursor message text into epoch milliseconds.
 // Format: "Sunday, Jun 7, 2026, 9:46 PM (UTC+2)"
 // The shown time is the user's local time; we account for the UTC offset so
@@ -62,7 +60,7 @@ function parseTimestampMs(text) {
   const ts = tagM[1].trim();
   const dtM = ts.match(/(\w{3})\s+(\d{1,2}),\s+(\d{4}),\s+(\d{1,2}):(\d{2})\s+(AM|PM)/i);
   if (!dtM) return null;
-  const month = _MONTHS[dtM[1]];
+  const month = MONTH_NAMES[dtM[1]];
   if (month === undefined) return null;
   let hours = parseInt(dtM[4], 10);
   const mins = parseInt(dtM[5], 10);

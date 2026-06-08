@@ -125,7 +125,7 @@ function pushUserText(text, ts, out) {
   // Extract <command-name>
   const cmdNameMatch = text.match(/<command-name>(.*?)<\/command-name>/);
   let cmdName = cmdNameMatch ? cmdNameMatch[1] : (cmdMsg || null);
-  if (cmdNameMatch) text = text.replace(/<command-name>.*?<\/command-name>/, '').trim();
+  if (cmdNameMatch) text = text.replace(/<command-name>.*?<\/command-name>/g, '').trim();
 
   if (cmdName) out.push({ role: 'local_command', name: cmdName, caveat: caveat ?? undefined, timestamp: ts });
   if (text) out.push({ role: 'user', content: text, timestamp: ts });

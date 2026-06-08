@@ -21,10 +21,11 @@ export async function getSkills(provider) {
 // from the list item's provider); falls back to a linear search when absent.
 export function getSkillDetail(provider, slug, from = null) {
   if (provider === ALL_PROVIDER) {
-    if (from) return registry.get(from)?.getSkillDetail(slug) ?? null;
+    if (from) {
+      try { return registry.get(from)?.getSkillDetail(slug) ?? null; } catch { return null; }
+    }
     for (const [, impl] of registry) {
-      const d = impl.getSkillDetail(slug);
-      if (d) return d;
+      try { const d = impl.getSkillDetail(slug); if (d) return d; } catch { /* skip */ }
     }
     return null;
   }

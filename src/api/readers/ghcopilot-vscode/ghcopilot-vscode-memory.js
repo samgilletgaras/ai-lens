@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { parseFrontmatter, CACHE_TTL, isTmp, tildeHome } from '../../utils.js';
-import { getCandidateDirs, getUserDirs, registerCacheClear } from './ghcopilot-vscode-sessions.js';
+import { getCandidateDirs, getUserDirs, registerCacheClear, decodeWorkspaceUri } from './ghcopilot-vscode-sessions.js';
 import { register } from '../memory.js';
 
 const _memoryCache = new Map();
@@ -18,10 +18,6 @@ const GLOBAL_PROJECT = 'Copilot Global';
 // The Plan agent writes its plans into this same memory tree as plan*.md; those are
 // surfaced under Plans (ghcopilot-vscode-plans.js), so skip them here to avoid overlap.
 const PLAN_FILE = /^plan.*\.md$/i;
-
-function decodeWorkspaceUri(uri) {
-  try { return new URL(uri).pathname; } catch { return null; }
-}
 
 // Recursively collect .md files, returning paths relative to `root` (POSIX-style).
 function walkMd(root, rel = '') {
@@ -117,7 +113,7 @@ async function getMemory(project = null, filename = null) {
         sourcePath: tildeHome(e.fullPath),
         ...(filename ? { frontmatter: { ...meta }, body } : {}),
       });
-    } catch(e) {}
+    } catch (_err) {}
   }
   _memoryCache.set(key, { data: out, time: now });
   return out;

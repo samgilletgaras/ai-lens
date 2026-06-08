@@ -109,6 +109,10 @@ export function isWithin(root, target) {
   return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
 }
 
+// Month-name → 0-based index. Shared by Cursor session and stats readers to
+// parse the "<timestamp>Sunday, Jun 7, 2026, …</timestamp>" format.
+export const MONTH_NAMES = { Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11 };
+
 export function parseFrontmatter(content) {
   if (typeof content !== 'string') return { meta: {}, body: '' };
   const lines = content.split('\n');

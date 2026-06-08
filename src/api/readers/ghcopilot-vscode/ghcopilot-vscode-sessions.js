@@ -56,7 +56,7 @@ export function getUserDirs() {
   return [...new Set(getCandidateDirs().map(d => path.dirname(d)))];
 }
 
-function decodeWorkspaceUri(uri) {
+export function decodeWorkspaceUri(uri) {
   try { return new URL(uri).pathname; } catch { return null; }
 }
 

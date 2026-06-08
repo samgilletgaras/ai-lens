@@ -49,7 +49,7 @@ function readWorkspaceServers() {
       servers.push({
         id: `workspace:${wsName}:${name}`,
         name,
-        type: 'cloud',
+        type: cfg.url ? 'cloud' : 'plugin',
         config: { command: cfg.command ?? null, args: cfg.args ?? null, url: cfg.url ?? null },
         source: mcpJsonPath,
         toolCount: 0, totalCalls: 0, lastUsed: null,

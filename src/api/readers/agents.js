@@ -21,10 +21,11 @@ export async function getAgents(provider) {
 // linear search when absent.
 export function getAgentDetail(provider, slug, from = null) {
   if (provider === ALL_PROVIDER) {
-    if (from) return registry.get(from)?.getAgentDetail(slug) ?? null;
+    if (from) {
+      try { return registry.get(from)?.getAgentDetail(slug) ?? null; } catch { return null; }
+    }
     for (const [, impl] of registry) {
-      const d = impl.getAgentDetail(slug);
-      if (d) return d;
+      try { const d = impl.getAgentDetail(slug); if (d) return d; } catch { /* skip */ }
     }
     return null;
   }
