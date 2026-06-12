@@ -62,89 +62,89 @@ function toolResultText(content) {
 
 // ─── Event emission ───────────────────────────────────────────────────────────
 
+const SKILL_RE = /^<skill\s+name="([^"]+)"/;
+
+function emitUserMsg(msg, ts, out) {
+  const text = userContentText(msg.content);
+  if (!text) return;
+  const m = SKILL_RE.exec(text);
+  if (m) {
+    out.push({ role: 'system_attachment', content: text, fileName: m[1], timestamp: ts });
+  } else {
+    out.push({ role: 'user', content: text, timestamp: ts });
+  }
+}
+
+function emitAssistantMsg(msg, ts, out) {
+  if (!Array.isArray(msg.content)) return;
+  for (const block of msg.content) {
+    if (!block) continue;
+    if (block.type === 'text' && block.text?.trim()) {
+      out.push({ role: 'assistant', content: block.text, timestamp: ts });
+    } else if (block.type === 'toolCall') {
+      out.push({ role: 'tool_use', name: block.name, input: block.arguments ?? {}, id: block.id ?? null, timestamp: ts });
+    } else if (block.type === 'thinking' && block.thinking) {
+      out.push({ role: 'thinking', content: block.thinking, timestamp: ts });
+    }
+    // image blocks: skip (binary)
+  }
+}
+
+const MSG_HANDLERS = {
+  user: emitUserMsg,
+  assistant: emitAssistantMsg,
+  toolResult(msg, ts, out) {
+    out.push({ role: 'tool_result', content: toolResultText(msg.content), is_error: msg.isError || false, tool_use_id: msg.toolCallId || null, timestamp: ts });
+  },
+  bashExecution(msg, ts, out) {
+    const content = [msg.command ? `$ ${msg.command}` : null, msg.output ?? ''].filter(Boolean).join('\n');
+    out.push({ role: 'tool_result', content, is_error: msg.exitCode != null && msg.exitCode !== 0, tool_use_id: null, timestamp: ts });
+  },
+  custom(msg, ts, out) {
+    if (msg.display) {
+      const text = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+      out.push({ role: 'system', content: text, timestamp: ts });
+    }
+  },
+  branchSummary(msg, ts, out) {
+    if (msg.summary) out.push({ role: 'system', content: `Branch summary: ${msg.summary}`, timestamp: ts });
+  },
+  compactionSummary(msg, ts, out) {
+    if (msg.summary) out.push({ role: 'system', content: `Context compacted: ${msg.summary}`, timestamp: ts });
+  },
+};
+
+const ENTRY_HANDLERS = {
+  message(entry, ts, out) {
+    const handler = entry.message && MSG_HANDLERS[entry.message.role];
+    if (handler) handler(entry.message, ts, out);
+  },
+  compaction(entry, ts, out) {
+    if (entry.summary) out.push({ role: 'system', content: `Context compacted: ${entry.summary}`, timestamp: ts });
+  },
+  branch_summary(entry, ts, out) {
+    if (entry.summary) out.push({ role: 'system', content: `Branch summary: ${entry.summary}`, timestamp: ts });
+  },
+  model_change(entry, ts, out) {
+    const model = [entry.provider, entry.modelId].filter(Boolean).join('/');
+    if (model) out.push({ role: 'system', content: `Model changed to ${model}`, timestamp: ts });
+  },
+  custom_message(entry, ts, out) {
+    if (!entry.display) return;
+    const text = typeof entry.content === 'string' ? entry.content : JSON.stringify(entry.content);
+    if (text) out.push({ role: 'system', content: text, timestamp: ts });
+  },
+  // thinking_level_change, label, custom: intentionally skipped
+};
+
+function emitEntry(entry, out) {
+  const handler = ENTRY_HANDLERS[entry.type];
+  if (handler) handler(entry, entry.timestamp || null, out);
+}
+
 // Emit normalized events from the linear path of entries into `out`.
 function emitEvents(linearPath, out) {
-  for (const entry of linearPath) {
-    const ts = entry.timestamp || null;
-
-    if (entry.type === 'message') {
-      const msg = entry.message;
-      if (!msg) continue;
-
-      switch (msg.role) {
-        case 'user': {
-          const text = userContentText(msg.content);
-          if (text) out.push({ role: 'user', content: text, timestamp: ts });
-          break;
-        }
-        case 'assistant': {
-          if (!Array.isArray(msg.content)) break;
-          for (const block of msg.content) {
-            if (!block) continue;
-            if (block.type === 'text' && block.text?.trim()) {
-              out.push({ role: 'assistant', content: block.text, timestamp: ts });
-            } else if (block.type === 'toolCall') {
-              out.push({ role: 'tool_use', name: block.name, input: block.arguments ?? {}, id: block.id ?? null, timestamp: ts });
-            } else if (block.type === 'thinking' && block.thinking) {
-              out.push({ role: 'thinking', content: block.thinking, timestamp: ts });
-            }
-            // image blocks: skip (binary)
-          }
-          break;
-        }
-        case 'toolResult': {
-          out.push({
-            role: 'tool_result',
-            content: toolResultText(msg.content),
-            is_error: msg.isError || false,
-            tool_use_id: msg.toolCallId || null,
-            timestamp: ts,
-          });
-          break;
-        }
-        case 'bashExecution': {
-          const content = [
-            msg.command ? `$ ${msg.command}` : null,
-            msg.output ?? '',
-          ].filter(Boolean).join('\n');
-          out.push({
-            role: 'tool_result',
-            content,
-            is_error: msg.exitCode != null && msg.exitCode !== 0,
-            tool_use_id: null,
-            timestamp: ts,
-          });
-          break;
-        }
-        case 'custom': {
-          if (msg.display) {
-            const text = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
-            out.push({ role: 'system', content: text, timestamp: ts });
-          }
-          break;
-        }
-        case 'branchSummary': {
-          if (msg.summary) out.push({ role: 'system', content: `Branch summary: ${msg.summary}`, timestamp: ts });
-          break;
-        }
-        case 'compactionSummary': {
-          if (msg.summary) out.push({ role: 'system', content: `Context compacted: ${msg.summary}`, timestamp: ts });
-          break;
-        }
-      }
-    } else if (entry.type === 'compaction') {
-      if (entry.summary) out.push({ role: 'system', content: `Context compacted: ${entry.summary}`, timestamp: ts });
-    } else if (entry.type === 'branch_summary') {
-      if (entry.summary) out.push({ role: 'system', content: `Branch summary: ${entry.summary}`, timestamp: ts });
-    } else if (entry.type === 'model_change') {
-      const model = [entry.provider, entry.modelId].filter(Boolean).join('/');
-      if (model) out.push({ role: 'system', content: `Model changed to ${model}`, timestamp: ts });
-    } else if (entry.type === 'custom_message' && entry.display) {
-      const text = typeof entry.content === 'string' ? entry.content : JSON.stringify(entry.content);
-      if (text) out.push({ role: 'system', content: text, timestamp: ts });
-    }
-    // thinking_level_change, label, custom: intentionally skipped
-  }
+  for (const entry of linearPath) emitEntry(entry, out);
 }
 
 // ─── File reading ──────────────────────────────────────────────────────────────

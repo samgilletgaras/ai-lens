@@ -35,6 +35,7 @@
   --color-provider-claude:          #d97757;   /* Claude Code orange (clay) */
   --color-provider-cursor:          #a78bfa;   /* violet-400 */
   --color-provider-ghcopilotvscode: #38bdf8;   /* sky-400 */
+  --color-provider-ghcopilotcli:    #60a5fa;   /* blue-400 */
   --color-provider-pi:              #34d399;   /* emerald-400 */
   --color-provider-all:             var(--color-lens-accent);   /* the "All Providers" meta-provider */
 }
@@ -119,6 +120,9 @@
 }
 .provider-badge-ghcopilotvscode {
   @apply bg-provider-ghcopilotvscode/15 text-provider-ghcopilotvscode border-provider-ghcopilotvscode/25;
+}
+.provider-badge-ghcopilotcli {
+  @apply bg-provider-ghcopilotcli/15 text-provider-ghcopilotcli border-provider-ghcopilotcli/25;
 }
 .provider-badge-pi {
   @apply bg-provider-pi/15 text-provider-pi border-provider-pi/25;

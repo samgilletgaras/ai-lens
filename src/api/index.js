@@ -7,6 +7,7 @@ import * as demo from './demo-data.js';
 // Importing providers triggers all reader self-registrations
 import * as claudeProvider from './providers/claude.js';
 import * as ghcopilotProvider from './providers/ghcopilot-vscode.js';
+import * as ghcopilotCliProvider from './providers/ghcopilot-cli.js';
 import * as cursorProvider from './providers/cursor.js';
 import * as piProvider from './providers/pi.js';
 
@@ -23,6 +24,7 @@ import * as plans from './readers/plans.js';
 const PROVIDERS = {
   claude: claudeProvider,
   'ghcopilot-vscode': ghcopilotProvider,
+  'ghcopilot-cli': ghcopilotCliProvider,
   cursor: cursorProvider,
   pi: piProvider,
 };

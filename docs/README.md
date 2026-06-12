@@ -22,6 +22,7 @@ link to deeper detail pages.
 |----------|------------------|
 | Claude Code | [`claude/`](claude/README.md) — `~/.claude/` layout, the session JSONL envelope, and where projects, messages, logs, stats, skills, agents, MCPs, memory, and plans come from. |
 | GitHub Copilot (VS Code) | [`ghcopilot-vscode/`](ghcopilot-vscode/README.md) — VS Code storage layout, workspace/session discovery, and where each feature's data comes from. |
+| GitHub Copilot (CLI) | [`ghcopilot-cli/`](ghcopilot-cli/README.md) — `~/.copilot/` layout, the CLI JSONL event log format (including `tool_result` events absent from VS Code), workspace.yaml project discovery, agents, skills, MCP config, and global instructions. |
 | Cursor | [`cursor/`](cursor/README.md) — `~/.cursor/` layout, agent-transcript JSONL format, project slug decoding, plans, skills, and MCP metadata. |
 | Pi | [`pi/`](pi/README.md) — `~/.pi/agent/` layout, the session JSONL tree format, tree traversal, per-message token costs, skills, and optional MCP config. Implemented in `src/api/providers/pi.js` + `src/api/readers/pi/`. |
 
