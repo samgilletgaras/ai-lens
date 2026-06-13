@@ -6,8 +6,6 @@ import { ActivityHeatmap } from './ActivityHeatmap';
 import { ProviderBadge } from './ProviderBadge';
 import { LoadingSpinner } from './LoadingSpinner';
 
-const usd = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
 function StatCard({ label, value, sub, footnote }: { label: string; value: string; sub?: string; footnote?: string }) {
   return (
     <div className="bg-lens-surface border border-lens-border rounded-lg p-4 flex flex-col">
@@ -107,15 +105,10 @@ export function GlobalDiagnostics({ demoMode, providers = [], provider }: { demo
   const maxModel = Math.max(...sortedModels.map(([, v]) => v), 1);
   const maxToken = Math.max(stats.tokens.input, stats.tokens.output, stats.tokens.cacheRead, stats.tokens.cacheCreation, 1);
   const topProjects = stats.topProjects ?? [];
-  const maxProjectMsgs = Math.max(...topProjects.map(p => p.messageCount), 1);
-  const hasHooks = stats.hooks.success + stats.hooks.failure > 0;
   const topTools = stats.topTools ?? [];
   const hasTokensInProjects = topProjects.some(p => p.tokenCount > 0);
-  // Per-provider cost split, surfaced only in All-Providers mode (>1 contributing provider).
-  const costByProvider = Object.entries(stats.estimatedCostByProvider ?? {}).sort((a, b) => b[1] - a[1]);
-  const showCostBreakdown = costByProvider.length > 1;
-  const hasZeroCostProvider = costByProvider.some(([, c]) => c <= 0);
-
+  const maxProjectMsgs = Math.max(...topProjects.map(p => p.messageCount), 1);
+  const hasHooks = stats.hooks.success + stats.hooks.failure > 0;
   const stopReasonOrder = ['tool_use', 'end_turn', 'max_tokens', 'stop_sequence'];
   const orderedStopReasons = [
     ...stopReasonOrder.filter(k => stopReasons[k] !== undefined).map(k => [k, stopReasons[k]] as [string, number]),
@@ -152,35 +145,6 @@ export function GlobalDiagnostics({ demoMode, providers = [], provider }: { demo
             <StatCard label="Tool Calls" value={fmt(stats.totals.toolCalls)} />
           )}
         </div>
-
-        {/* Cost estimate — only when non-zero */}
-        {stats.estimatedCostUsd > 0 && (
-          <div className="bg-lens-surface border border-lens-border rounded-lg p-4 mb-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[10px] uppercase tracking-wider text-lens-text-dim mb-1">Estimated Cost</div>
-                <div className="text-3xl font-semibold text-lens-text tabular-nums">${usd(stats.estimatedCostUsd)}</div>
-              </div>
-              <div className="text-right text-xs text-lens-text-faint max-w-xs">
-                Approximate, based on public model pricing for input/output tokens. Cache tokens not billed.
-              </div>
-            </div>
-            {/* Per-provider breakdown (All Providers view) */}
-            {showCostBreakdown && (
-              <div className="mt-3 pt-3 border-t border-lens-border space-y-2">
-                {costByProvider.map(([id, cost]) => (
-                  <div key={id} className="flex items-center justify-between text-sm">
-                    <ProviderBadge id={id} providers={providers} />
-                    <span className="text-lens-text-body tabular-nums">${usd(cost)}{cost <= 0 && <span className="text-lens-text-faint">*</span>}</span>
-                  </div>
-                ))}
-                {hasZeroCostProvider && (
-                  <p className="text-[10px] text-lens-text-faint pt-1">* cost unknown: token pricing for this provider is not yet tracked</p>
-                )}
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Top projects */}
         {topProjects.length > 0 && (
