@@ -56,7 +56,7 @@ export interface AttachmentContent {
  *               tool_use_id?              (Claude + demo)
  * system        content: string
  * system_attachment  content: AttachmentContent  (Claude only)
- * local_command name, caveat?             (Claude slash commands)
+ * local_command name, caveat?             (Claude/Pi slash and ! bash commands)
  * skill_use     name (slug), location?   (Claude + Pi)
  */
 export interface Message {

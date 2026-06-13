@@ -73,6 +73,14 @@ async function getSessions(project, page, pageSize) {
 
 // ─── Block flattening helpers ─────────────────────────────────────────────────
 
+function stripAnsi(str) {
+  return str
+    .replace(/\x1B\[[\d;?]*[a-zA-Z]/g, '')   // CSI sequences (colours, cursor, erase…)
+    .replace(/\x1B\][^\x07]*(\x07|\x1B\\)/g, '') // OSC sequences
+    .replace(/\x1B./g, '')                    // any remaining ESC + one char
+    .replace(/\r\n?/g, '\n');                 // normalise line endings
+}
+
 // Flatten a user message's content (string or Block[]) into normalized events.
 function flattenUserContent(content, ts, out) {
   if (typeof content === 'string') {
@@ -101,6 +109,26 @@ function flattenUserContent(content, ts, out) {
 function pushUserText(text, ts, out) {
   if (!text) return;
 
+  // <bash-input>cmd</bash-input> — injected when the user runs ! <cmd>
+  const bashInputMatch = text.match(/^<bash-input>([\s\S]*?)<\/bash-input>\s*$/);
+  if (bashInputMatch) {
+    const cmd = bashInputMatch[1].split('\n')[0].trim();
+    if (cmd) out.push({ role: 'local_command', name: '! ' + cmd, timestamp: ts });
+    return;
+  }
+
+  // <bash-stdout>…</bash-stdout><bash-stderr>…</bash-stderr> — injected command output
+  if (/<bash-stdout>|<bash-stderr>/.test(text)) {
+    const stdoutM = text.match(/<bash-stdout>([\s\S]*?)<\/bash-stdout>/);
+    const stderrM = text.match(/<bash-stderr>([\s\S]*?)<\/bash-stderr>/);
+    const raw = [stdoutM?.[1] ?? '', stderrM?.[1] ?? ''].filter(Boolean).join('\n');
+    const clean = stripAnsi(raw)
+      .replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&amp;/g, '&')
+      .trim();
+    if (clean) out.push({ role: 'user', content: clean, timestamp: ts });
+    return;
+  }
+
   // Extract <local-command-caveat>
   let caveat = null;
   const caveatRe = /<local-command-caveat>([\s\S]*?)<\/local-command-caveat>/g;
@@ -110,8 +138,9 @@ function pushUserText(text, ts, out) {
     text = text.replace(/<local-command-caveat>[\s\S]*?<\/local-command-caveat>/g, '').trim();
   }
 
-  // Strip <command-args>
+  // Strip <command-args> and <local-command-stdout>
   text = text.replace(/<command-args>[\s\S]*?<\/command-args>/g, '').trim();
+  text = text.replace(/<local-command-stdout>[\s\S]*?<\/local-command-stdout>/g, '').trim();
 
   // Extract <command-message> (fallback name)
   let cmdMsg = null;
@@ -223,6 +252,27 @@ function mergeSkillEvents(events) {
   return result;
 }
 
+// Merge bash-command output (user event) into the preceding bash local_command.
+// <bash-input> → local_command name "! cmd"; <bash-stdout/stderr> → user content.
+// Absorb the user output into local_command.content so they appear as one event.
+function mergeBashEvents(events) {
+  const out = [];
+  for (let i = 0; i < events.length; i++) {
+    const ev = events[i];
+    const isBashCmd = ev.role === 'local_command' && typeof ev.name === 'string' && ev.name.startsWith('! ');
+    if (isBashCmd) {
+      const next = events[i + 1];
+      if (next?.role === 'user' && typeof next.content === 'string') {
+        out.push({ ...ev, content: next.content });
+        i++;
+        continue;
+      }
+    }
+    out.push(ev);
+  }
+  return out;
+}
+
 async function getMessages(project, sessionId) {
   const filePath = path.join(PROJECTS_DIR, project, `${sessionId}.jsonl`);
   if (!isWithin(PROJECTS_DIR, filePath)) return [];
@@ -243,7 +293,7 @@ async function getMessages(project, sessionId) {
       else if (p.type === 'system') messages.push({ role: 'system', content: p.content ?? '', timestamp: ts });
     } catch { /* skip */ }
   }
-  const merged = mergeSkillEvents(messages);
+  const merged = mergeBashEvents(mergeSkillEvents(messages));
   _messageCache[key] = { mtime, messages: merged };
   return merged;
 }

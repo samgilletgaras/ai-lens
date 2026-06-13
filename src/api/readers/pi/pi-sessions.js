@@ -98,8 +98,8 @@ const MSG_HANDLERS = {
     out.push({ role: 'tool_result', content: toolResultText(msg.content), is_error: msg.isError || false, tool_use_id: msg.toolCallId || null, timestamp: ts });
   },
   bashExecution(msg, ts, out) {
-    const content = [msg.command ? `$ ${msg.command}` : null, msg.output ?? ''].filter(Boolean).join('\n');
-    out.push({ role: 'tool_result', content, is_error: msg.exitCode != null && msg.exitCode !== 0, tool_use_id: null, timestamp: ts });
+    const output = msg.output?.trim() ?? '';
+    out.push({ role: 'local_command', name: '! ' + (msg.command ?? ''), content: output || undefined, timestamp: ts });
   },
   custom(msg, ts, out) {
     if (msg.display) {

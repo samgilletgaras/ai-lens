@@ -102,7 +102,7 @@ function PipelineEvent({
           {hasContent && (expanded ? <ChevronDown className="w-3 h-3 mr-1.5" /> : <ChevronRight className="w-3 h-3 mr-1.5" />)}
           {!hasContent && <span className="w-4.5" />}
           <Icon className="w-3 h-3 mr-1.5" />
-          <span className={`${isCommand ? 'font-mono' : ''}`}>{title}</span>
+          <span className={`${isCommand ? 'font-mono' : ''} truncate min-w-0`}>{title}</span>
         </button>
 
         {expanded && hasContent && (
@@ -245,12 +245,15 @@ export function MessageBubble({ message, collapseSignal, assistantLabel }: { mes
   }
 
   if (message.role === 'local_command') {
+    const isBash = typeof message.name === 'string' && message.name.startsWith('! ');
+    const dotColor = isBash ? 'bg-pink-500' : 'bg-lens-accent';
+    const textColor = isBash ? 'text-pink-400/80 hover:text-pink-300' : 'text-lens-accent/80 hover:text-lens-accent';
     return (
       <div className="flex flex-col w-full">
         {message.caveat && (
           <PipelineEvent
             timestamp={ts} icon={AlertTriangle}
-            dotColor="bg-lens-accent" textColor="text-lens-accent/80 hover:text-lens-accent"
+            dotColor={dotColor} textColor={textColor}
             title="Local Command Override"
             content={message.caveat}
             collapseSignal={collapseSignal}
@@ -258,8 +261,9 @@ export function MessageBubble({ message, collapseSignal, assistantLabel }: { mes
         )}
         <PipelineEvent
           timestamp={ts} icon={Terminal}
-          dotColor="bg-lens-accent" textColor="text-lens-accent/80 hover:text-lens-accent"
-          title={`Local Command: ${message.name ?? ''}`}
+          dotColor={dotColor} textColor={textColor}
+          title={isBash ? message.name ?? '' : `Local Command: ${message.name ?? ''}`}
+          content={typeof message.content === 'string' ? message.content : undefined}
           isCommand
           collapseSignal={collapseSignal}
         />
