@@ -62,14 +62,15 @@ function toolResultText(content) {
 
 // ─── Event emission ───────────────────────────────────────────────────────────
 
-const SKILL_RE = /^<skill\s+name="([^"]+)"/;
+// Captures: [1] name, [2] location (optional), [3] body content
+const SKILL_TAG_RE = /^<skill\s+name="([^"]+)"(?:\s+location="([^"]+)")?[^>]*>([\s\S]*?)(?:<\/skill>\s*)?$/;
 
 function emitUserMsg(msg, ts, out) {
   const text = userContentText(msg.content);
   if (!text) return;
-  const m = SKILL_RE.exec(text);
+  const m = SKILL_TAG_RE.exec(text);
   if (m) {
-    out.push({ role: 'system_attachment', content: text, fileName: m[1], timestamp: ts });
+    out.push({ role: 'skill_use', name: m[1], location: m[2] ?? undefined, content: m[3]?.trim() || undefined, timestamp: ts });
   } else {
     out.push({ role: 'user', content: text, timestamp: ts });
   }

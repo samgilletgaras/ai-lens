@@ -145,9 +145,82 @@ function flattenAssistantContent(content, ts, out) {
     } else if (block.type === 'text' && block.text?.trim()) {
       out.push({ role: 'assistant', content: block.text, timestamp: ts });
     } else if (block.type === 'tool_use') {
-      out.push({ role: 'tool_use', name: block.name, input: block.input ?? {}, id: block.id, timestamp: ts });
+      if (block.name === 'Skill' && block.input?.skill) {
+        out.push({ role: 'skill_use', name: block.input.skill, id: block.id, timestamp: ts });
+      } else {
+        out.push({ role: 'tool_use', name: block.name, input: block.input ?? {}, id: block.id, timestamp: ts });
+      }
     }
   }
+}
+
+// "Base directory for this skill: /path/..." — injected by the harness as a
+// standalone user line whenever a skill is loaded. Three observed patterns:
+//
+//   A: skill_use → tool_result("Launching skill:…") → skill body
+//   B: local_command → skill body  (direct injection, no Skill tool call)
+//   C: skill_use → skill body      (no tool_result at all)
+//
+// All three must collapse into a single skill_use event with the body as content.
+const SKILL_BODY_RE = /^Base directory for this skill:/;
+
+function skillSlugFromBody(content) {
+  const m = content.split('\n')[0].match(/Base directory for this skill:\s+(\S+)/);
+  return m ? m[1].split('/').pop() : null;
+}
+
+function mergeSkillEvents(events) {
+  // Pass 1 — look-ahead from each skill_use to absorb its tool_result (A) and/or
+  // skill body (A, C) in one forward scan. Uses index-based removal to avoid
+  // mutating the array mid-iteration.
+  const toRemove = new Set();
+  for (let i = 0; i < events.length; i++) {
+    const ev = events[i];
+    if (ev.role !== 'skill_use') continue;
+
+    let j = i + 1;
+    // Pattern A: skip the matching tool_result immediately after the skill_use
+    if (j < events.length && events[j].role === 'tool_result' && events[j].tool_use_id === ev.id) {
+      toRemove.add(j);
+      j++;
+    }
+    // Patterns A + C: absorb the skill body that now sits at position j
+    if (j < events.length && events[j].role === 'user' &&
+        typeof events[j].content === 'string' && SKILL_BODY_RE.test(events[j].content)) {
+      ev.content = events[j].content;
+      toRemove.add(j);
+    }
+  }
+  const pass1 = events.filter((_, i) => !toRemove.has(i));
+
+  // Pass 2 — handle local_command events.
+  // Pattern A (drop): local_command immediately followed by a skill_use means the
+  //   command triggered that skill — the skill_use is already the canonical event.
+  // Pattern B (convert): local_command immediately followed by a skill body means
+  //   direct harness injection with no tool call — synthesise a skill_use from it.
+  const result = [];
+  for (let i = 0; i < pass1.length; i++) {
+    const ev = pass1[i];
+    if (ev.role !== 'local_command') { result.push(ev); continue; }
+
+    let j = i + 1;
+    while (j < pass1.length && pass1[j].role === 'thinking') j++;
+
+    if (j < pass1.length && pass1[j].role === 'skill_use') {
+      continue; // Pattern A: drop, skill_use already there
+    }
+
+    if (j < pass1.length && pass1[j].role === 'user' &&
+        typeof pass1[j].content === 'string' && SKILL_BODY_RE.test(pass1[j].content)) {
+      const slug = skillSlugFromBody(pass1[j].content) ?? (ev.name ?? '').replace(/^\//, '');
+      result.push({ role: 'skill_use', name: slug, content: pass1[j].content, timestamp: ev.timestamp });
+      i = j;
+      continue; // Pattern B: converted
+    }
+
+    result.push(ev); // genuine local_command
+  }
+  return result;
 }
 
 async function getMessages(project, sessionId) {
@@ -170,8 +243,9 @@ async function getMessages(project, sessionId) {
       else if (p.type === 'system') messages.push({ role: 'system', content: p.content ?? '', timestamp: ts });
     } catch { /* skip */ }
   }
-  _messageCache[key] = { mtime, messages };
-  return messages;
+  const merged = mergeSkillEvents(messages);
+  _messageCache[key] = { mtime, messages: merged };
+  return merged;
 }
 
 register('claude', { getProjects, getSessions, getMessages });

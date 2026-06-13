@@ -126,7 +126,7 @@ Streams each `*.jsonl` once to compute `firstMessageTs`, `lastUpdated`, a `previ
 Streams one session file and **flattens** each line into the normalized message contract (see `docs/README.md`). Each Anthropic content block becomes its own event:
 
 - `user` lines: `tool_result` blocks → `{ role: 'tool_result' }` events; text blocks are parsed for Claude slash-command XML tags (`<command-name>`, `<local-command-caveat>`, `<command-args>`, `<command-message>`) and emitted as `{ role: 'local_command' }` + `{ role: 'user' }`.
-- `assistant` lines: `thinking` blocks → `{ role: 'thinking' }`; `text` blocks → `{ role: 'assistant' }`; `tool_use` blocks → `{ role: 'tool_use' }`.
+- `assistant` lines: `thinking` blocks → `{ role: 'thinking' }`; `text` blocks → `{ role: 'assistant' }`; `tool_use` blocks with `name === "Skill"` → `{ role: 'skill_use', name: input.skill }`; all other `tool_use` blocks → `{ role: 'tool_use' }`.
 - `attachment` lines → `{ role: 'system_attachment' }` (hook events, tool outputs).
 - `system` lines → `{ role: 'system' }`.
 

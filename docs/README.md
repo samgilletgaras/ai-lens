@@ -137,6 +137,7 @@ default off), toggled in Settings.
 | `system` | `content: string` | Claude, Cursor (`<system_reminder>`) |
 | `system_attachment` | `content: AttachmentContent` | Claude |
 | `local_command` | `name, caveat?` | Claude slash commands |
+| `skill_use` | `name` (slug), `location?` | Claude + Pi |
 
 All parsing logic (block flattening, XML tag extraction, vendor-specific envelope unwrapping) lives in the backend reader. The frontend `MessageBubble` component maps `role` to display style only — it never inspects content structure.
 

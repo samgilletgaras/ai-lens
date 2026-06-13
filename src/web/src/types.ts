@@ -57,13 +57,14 @@ export interface AttachmentContent {
  * system        content: string
  * system_attachment  content: AttachmentContent  (Claude only)
  * local_command name, caveat?             (Claude slash commands)
+ * skill_use     name (slug), location?   (Claude + Pi)
  */
 export interface Message {
   role: 'user' | 'assistant' | 'thinking' | 'tool_use' | 'tool_result'
-      | 'system' | 'system_attachment' | 'local_command';
+      | 'system' | 'system_attachment' | 'local_command' | 'skill_use';
   /** Text payload for user / assistant / thinking / tool_result / system */
   content?: string | AttachmentContent;
-  /** tool_use, local_command */
+  /** tool_use, local_command, skill_use */
   name?: string;
   /** tool_use */
   input?: Record<string, unknown>;
@@ -75,6 +76,8 @@ export interface Message {
   is_error?: boolean;
   /** local_command — the <local-command-caveat> text */
   caveat?: string;
+  /** skill_use (Pi only) — path to the SKILL.md file */
+  location?: string;
   timestamp: number | null;
 }
 

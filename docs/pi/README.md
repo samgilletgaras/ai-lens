@@ -219,11 +219,12 @@ Pi produces the second richest timeline after Claude Code:
 - `thinking` — extended thinking blocks (when thinking is enabled)
 - `system` — compaction summaries, branch summaries, model changes, extension
   context messages
+- `skill_use` — emitted when a user message starts with `<skill name="slug" location="path">`;
+  Pi injects the full SKILL.md content as a user-role message at skill invocation time
 
 **Absent (data-availability constraint, not a reader limitation):**
 - `system_attachment` — Pi has no hook system analogous to Claude Code's hooks
-- `local_command` — Pi has no slash-command protocol (skills are loaded via the
-  system prompt, not as commands)
+- `local_command` — Pi has no slash-command protocol
 
 ---
 

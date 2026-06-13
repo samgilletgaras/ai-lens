@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Message, AttachmentContent } from '../types';
-import { ChevronDown, ChevronRight, BrainCircuit, Play, CheckCircle2, XCircle, Terminal, Activity, Zap, AlertTriangle, Copy, Check } from 'lucide-react';
+import { ChevronDown, ChevronRight, BrainCircuit, Play, CheckCircle2, XCircle, Terminal, Activity, Zap, AlertTriangle, Copy, Check, Sparkles } from 'lucide-react';
 import { formatRelative } from '../utils';
 
 function formatTime(timestamp?: number | null) {
@@ -264,6 +264,21 @@ export function MessageBubble({ message, collapseSignal, assistantLabel }: { mes
           collapseSignal={collapseSignal}
         />
       </div>
+    );
+  }
+
+  if (message.role === 'skill_use') {
+    const skillContent = typeof message.content === 'string' ? message.content : message.location;
+    return (
+      <PipelineEvent
+        timestamp={ts} icon={Sparkles}
+        dotColor="bg-orange-500" textColor="text-orange-400/80 hover:text-orange-300"
+        title={`Skill: ${message.name ?? ''}`}
+        isCommand
+        content={skillContent}
+        useMarkdown={typeof message.content === 'string'}
+        collapseSignal={collapseSignal}
+      />
     );
   }
 
