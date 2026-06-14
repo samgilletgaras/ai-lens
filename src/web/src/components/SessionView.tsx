@@ -5,6 +5,7 @@ import { fmt } from '../utils';
 import { MessageBubble } from './MessageBubble';
 import { extractMessageText, getSessionDuration, exportSession } from '../session';
 import { LoadingSpinner } from './LoadingSpinner';
+import { SourcePath } from './SourcePath';
 
 export function SessionView({ conv, messages, loading, assistantLabel, showSourcePaths = true }: {
   conv: ConversationSummary;
@@ -123,7 +124,7 @@ export function SessionView({ conv, messages, loading, assistantLabel, showSourc
         <div className="shrink-0 px-4 md:px-8 lg:px-12 py-1 text-[10px] text-lens-text-faint border-b border-lens-border/40 flex items-center gap-2 flex-wrap">
           <span>Sources:</span>
           {conv.sourcePaths.map((p, i) => (
-            <span key={i} title={p} className="font-mono">{p}</span>
+            <SourcePath key={i} path={p} />
           ))}
         </div>
       )}

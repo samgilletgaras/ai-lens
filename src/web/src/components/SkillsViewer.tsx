@@ -7,6 +7,7 @@ import { apiUrl } from '../utils';
 import { ProviderBadge } from './ProviderBadge';
 import { ProviderFilterBar } from './ProviderFilterBar';
 import { LoadingSpinner } from './LoadingSpinner';
+import { SourcePath } from './SourcePath';
 
 const META_LABEL: Record<string, string> = {
   name: 'Name',
@@ -126,8 +127,9 @@ export function SkillsViewer({ demoMode, providers = [], provider, showSourcePat
           )}
 
           {!contentLoading && showSourcePaths && skillDetail?.sourcePath && (
-            <div className="font-mono text-[10px] text-lens-text-faint mb-4" title={skillDetail.sourcePath}>
-              Source: {skillDetail.sourcePath}
+            <div className="flex items-center gap-2 text-[10px] text-lens-text-faint mb-4">
+              <span className="shrink-0">Source:</span>
+              <SourcePath path={skillDetail.sourcePath} />
             </div>
           )}
 

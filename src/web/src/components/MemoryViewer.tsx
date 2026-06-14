@@ -7,6 +7,7 @@ import { apiUrl, prettifyProjectName } from '../utils';
 import { ProviderBadge } from './ProviderBadge';
 import { ProviderFilterBar } from './ProviderFilterBar';
 import { LoadingSpinner } from './LoadingSpinner';
+import { SourcePath } from './SourcePath';
 
 type MemoryType = 'user' | 'feedback' | 'project' | 'reference';
 const NO_TYPE_FILTER = '__none__';
@@ -167,8 +168,9 @@ export function MemoryViewer({ demoMode, providers = [], provider, showSourcePat
             {prettifyProjectName(selected.project)} · {selected.filename}
           </div>
           {showSourcePaths && selected.sourcePath && (
-            <div className="font-mono text-[10px] text-lens-text-faint mb-5" title={selected.sourcePath}>
-              Source: {selected.sourcePath}
+            <div className="flex items-center gap-2 text-[10px] text-lens-text-faint mb-5">
+              <span className="shrink-0">Source:</span>
+              <SourcePath path={selected.sourcePath} />
             </div>
           )}
 

@@ -7,6 +7,7 @@ import { apiUrl } from '../utils';
 import { ProviderBadge } from './ProviderBadge';
 import { ProviderFilterBar } from './ProviderFilterBar';
 import { LoadingSpinner } from './LoadingSpinner';
+import { SourcePath } from './SourcePath';
 
 export function SystemPromptsViewer({ demoMode, providers = [], provider, showSourcePaths = true }: { demoMode?: boolean; providers?: ProviderInfo[]; provider?: string | null; showSourcePaths?: boolean }) {
   const [entries, setEntries] = useState<SystemPromptEntry[]>([]);
@@ -47,8 +48,9 @@ export function SystemPromptsViewer({ demoMode, providers = [], provider, showSo
           </div>
           <div className="font-mono text-[11px] text-lens-text-faint mb-1">{selected.filename}</div>
           {showSourcePaths && selected.sourcePath && (
-            <div className="font-mono text-[10px] text-lens-text-faint mb-5" title={selected.sourcePath}>
-              Source: {selected.sourcePath}
+            <div className="flex items-center gap-2 text-[10px] text-lens-text-faint mb-5">
+              <span className="shrink-0">Source:</span>
+              <SourcePath path={selected.sourcePath} />
             </div>
           )}
 

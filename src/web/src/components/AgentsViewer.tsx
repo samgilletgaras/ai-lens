@@ -7,6 +7,7 @@ import { apiUrl } from '../utils';
 import { ProviderBadge } from './ProviderBadge';
 import { ProviderFilterBar } from './ProviderFilterBar';
 import { LoadingSpinner } from './LoadingSpinner';
+import { SourcePath } from './SourcePath';
 
 type AgentSort = 'recent' | 'az';
 
@@ -95,8 +96,9 @@ export function AgentsViewer({ demoMode, providers = [], provider, showSourcePat
           )}
 
           {!detailLoading && showSourcePaths && detail?.sourcePath && (
-            <div className="font-mono text-[10px] text-lens-text-faint mb-4" title={detail.sourcePath}>
-              Source: {detail.sourcePath}
+            <div className="flex items-center gap-2 text-[10px] text-lens-text-faint mb-4">
+              <span className="shrink-0">Source:</span>
+              <SourcePath path={detail.sourcePath} />
             </div>
           )}
 

@@ -1,4 +1,8 @@
 import http from 'http';
+import os from 'os';
+import path from 'path';
+import fs from 'fs';
+import { spawn } from 'child_process';
 import { PORT, parseQuery, ALL_PROVIDER, updateServerSettings } from './utils.js';
 import { clearAllCaches as clearGhCopilotCaches } from './readers/ghcopilot-vscode/ghcopilot-vscode-sessions.js';
 import { config } from './config.js';
@@ -81,6 +85,26 @@ const server = http.createServer(async (req, res) => {
       patch = Object.fromEntries(Object.entries(patch).filter(([k]) => ALLOWED_KEYS.has(k)));
       updateServerSettings(patch);
       clearGhCopilotCaches();
+      ok({ data: null });
+    });
+    return;
+  }
+
+  if (req.method === 'POST' && q.pathname === '/api/open') {
+    const chunks = [];
+    req.on('data', c => chunks.push(c));
+    req.on('end', () => {
+      let reqPath = '';
+      try { reqPath = JSON.parse(Buffer.concat(chunks).toString()).path ?? ''; } catch { /* ignore */ }
+      const home = os.homedir();
+      const resolved = reqPath.startsWith('~') ? path.join(home, reqPath.slice(1)) : path.resolve(reqPath);
+      if (!resolved.startsWith(home + path.sep) && resolved !== home) {
+        err('Path outside home directory'); return;
+      }
+      let dir = resolved;
+      try { if (fs.statSync(resolved).isFile()) dir = path.dirname(resolved); } catch { /* open anyway */ }
+      const cmd = os.platform() === 'darwin' ? 'open' : 'xdg-open';
+      spawn(cmd, [dir], { detached: true, stdio: 'ignore' }).unref();
       ok({ data: null });
     });
     return;

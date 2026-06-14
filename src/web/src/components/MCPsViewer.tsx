@@ -5,6 +5,7 @@ import { apiUrl } from '../utils';
 import { ProviderBadge } from './ProviderBadge';
 import { ProviderFilterBar } from './ProviderFilterBar';
 import { LoadingSpinner } from './LoadingSpinner';
+import { SourcePath } from './SourcePath';
 
 function TypeBadge({ type }: { type: 'plugin' | 'cloud' }) {
   return type === 'cloud'
@@ -117,8 +118,13 @@ export function MCPsViewer({ demoMode, providers = [], provider, showSourcePaths
                   <span>{selected.totalCalls.toLocaleString()} total calls</span>
                   <span>{selected.toolCount} tools used</span>
                   {selected.lastUsed && <span>Last used {formatDate(selected.lastUsed)}</span>}
-                  {showSourcePaths && selected.source && <span className="font-mono text-lens-text-faint truncate" title={selected.source}>{selected.source}</span>}
                 </div>
+                {showSourcePaths && selected.source && (
+                  <div className="flex items-center gap-2 mt-2 text-[10px] text-lens-text-faint">
+                    <span className="shrink-0">Source:</span>
+                    <SourcePath path={selected.source} />
+                  </div>
+                )}
               </div>
 
               {detail?.tools && detail.tools.length > 0 && (
